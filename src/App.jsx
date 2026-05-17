@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from "recharts";
-import { db, auth } from "./firebase.js";
+import { db, auth } from "./firebase.js"; 
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
 import { signInWithRedirect, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
