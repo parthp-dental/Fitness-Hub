@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from "recharts";
-import { db, auth } from "./firebase.js"; 
+import { db, UID } from "./firebase.js";
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
-import { signInWithRedirect, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -234,51 +233,6 @@ function SubTabs({ tabs, active, onChange }) {
     </div>
   );
 }
-
-// ── Login Screen ─────────────────────────────────────────────────────────────
-
-function LoginScreen({ onLogin }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleLogin() {
-    setLoading(true); setError("");
-    try {
-      await signInWithRedirect(auth, new GoogleAuthProvider());
-    } catch (e) {
-      setError("Sign in failed. Please try again.");
-    }
-    setLoading(false);
-  }
-
-  return (
-    <div style={{ minHeight:"100vh", background:"linear-gradient(160deg,#1a1a2e 0%,#0f3460 100%)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24 }}>
-      <div style={{ fontSize:64, marginBottom:16 }}>🏋️</div>
-      <div style={{ fontSize:28, fontWeight:900, color:"#fff", marginBottom:8, textAlign:"center" }}>My Fitness Hub</div>
-      <div style={{ fontSize:14, color:"#8899bb", marginBottom:48, textAlign:"center", lineHeight:1.6 }}>Your personal fitness tracker.</div>
-
-      <div style={{ background:"rgba(255,255,255,0.06)", borderRadius:18, padding:24, width:"100%", maxWidth:320, marginBottom:24 }}>
-        <div style={{ fontSize:13, fontWeight:700, color:"#fff", marginBottom:12 }}>What's saved to your account:</div>
-        {["📝 Daily food & calorie logs","🏋️ Training sessions","⚖️ Weight history & graphs","📸 Progress photos","💊 Supplement tracker"].map((f,i)=>(
-          <div key={i} style={{ fontSize:12, color:"#8899bb", marginBottom:8 }}>{f}</div>
-        ))}
-      </div>
-
-      {error && <div style={{ fontSize:12, color:"#ef4444", marginBottom:16 }}>{error}</div>}
-
-      <button type="button" onClick={handleLogin} disabled={loading} style={{ width:"100%", maxWidth:320, padding:"16px", background:loading?"#aaa":"#fff", color:"#1a1a2e", border:"none", borderRadius:14, fontSize:16, fontWeight:700, cursor:loading?"not-allowed":"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:10 }}>
-        <span style={{ fontSize:20 }}>G</span>
-        {loading ? "Signing in…" : "Sign in with Google"}
-      </button>
-
-      <div style={{ fontSize:11, color:"#8899bb", marginTop:20, textAlign:"center", lineHeight:1.6, maxWidth:280 }}>
-        Your data is saved to your Google account and syncs across all your devices.
-      </div>
-    </div>
-  );
-}
-
-// ── Home Tab ─────────────────────────────────────────────────────────────────
 
 function HomeTab({ totals, suppLog, weightLog, weeklyData, onExport }) {
   const hr = new Date().getHours();
@@ -896,7 +850,6 @@ function SuppsTab({ suppLog, onToggle }) {
 // ── Main App ─────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [user, setUser]           = useState(undefined); // undefined = loading
   const [tab, setTab]             = useState("home");
   const [foodLog, setFoodLog]     = useState([]);
   const [trainingLog, setTrainingLog] = useState([]);
@@ -905,19 +858,10 @@ export default function App() {
   const [photos, setPhotos]       = useState([]);
   const [weeklyData, setWeeklyData] = useState([]);
 
-  // Auth listener - onAuthStateChanged fires automatically after redirect
+  // Load data on startup
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u || null);
-    });
-    return unsub;
+    loadAll(UID);
   }, []);
-
-  // Load data when user logs in
-  useEffect(() => {
-    if (!user) return;
-    loadAll(user.uid);
-  }, [user]);
 
   async function loadAll(uid) {
     const today = getToday();
@@ -963,49 +907,49 @@ export default function App() {
   async function addFood(item) {
     const updated = [...foodLog, item];
     setFoodLog(updated);
-    await fbSet(user.uid,"food",getToday(),{items:updated,date:getToday()});
+    await fbSet(UID,"food",getToday(),{items:updated,date:getToday()});
     setWeeklyData(prev=>prev.map(d=>d.date===getToday()?{...d,kcal:Math.round(updated.reduce((s,f)=>s+(Number(f.kcal)||0),0)),protein:Math.round(updated.reduce((s,f)=>s+(Number(f.protein)||0),0))}:d));
   }
 
   async function removeFood(id) {
     const updated = foodLog.filter(f=>f.id!==id);
     setFoodLog(updated);
-    await fbSet(user.uid,"food",getToday(),{items:updated,date:getToday()});
+    await fbSet(UID,"food",getToday(),{items:updated,date:getToday()});
   }
 
   async function addTraining(session) {
     const updated = [...trainingLog, session];
     setTrainingLog(updated);
-    await fbSet(user.uid,"training",getToday(),{sessions:updated,date:getToday()});
+    await fbSet(UID,"training",getToday(),{sessions:updated,date:getToday()});
     setWeeklyData(prev=>prev.map(d=>d.date===getToday()?{...d,sessions:updated.length}:d));
   }
 
   async function removeTraining(id) {
     const updated = trainingLog.filter(t=>t.id!==id);
     setTrainingLog(updated);
-    await fbSet(user.uid,"training",getToday(),{sessions:updated,date:getToday()});
+    await fbSet(UID,"training",getToday(),{sessions:updated,date:getToday()});
   }
 
   async function toggleSupp(id) {
     const updated = suppLog.includes(id) ? suppLog.filter(s=>s!==id) : [...suppLog,id];
     setSuppLog(updated);
-    await fbSet(user.uid,"supplements",getToday(),{taken:updated,date:getToday()});
+    await fbSet(UID,"supplements",getToday(),{taken:updated,date:getToday()});
   }
 
   async function addWeight(entry) {
     const updated = [...weightLog.filter(w=>w.date!==entry.date),entry].sort((a,b)=>a.date.localeCompare(b.date));
     setWeightLog(updated);
-    await fbSet(user.uid,"stats","weight",{entries:updated});
+    await fbSet(UID,"stats","weight",{entries:updated});
     setWeeklyData(prev=>prev.map(d=>d.date===entry.date?{...d,weight:entry.weight}:d));
   }
 
   async function addPhoto(photo) {
-    await fbSet(user.uid,"photos",photo.id,photo);
+    await fbSet(UID,"photos",photo.id,photo);
     setPhotos(prev=>[...prev,photo]);
   }
 
   async function deletePhoto(id) {
-    await fbDel(user.uid,"photos",id);
+    await fbDel(UID,"photos",id);
     setPhotos(prev=>prev.filter(p=>p.id!==id));
   }
 
@@ -1020,19 +964,6 @@ export default function App() {
 
   const totals = foodLog.reduce((acc,f)=>({kcal:acc.kcal+(Number(f.kcal)||0),protein:acc.protein+(Number(f.protein)||0),carbs:acc.carbs+(Number(f.carbs)||0),fat:acc.fat+(Number(f.fat)||0)}),{kcal:0,protein:0,carbs:0,fat:0});
 
-  // Loading
-  if (user===undefined) {
-    return (
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", height:"100vh", background:"#1a1a2e" }}>
-        <div style={{ fontSize:40, marginBottom:14 }}>🏋️</div>
-        <div style={{ fontSize:14, color:"#fff", fontFamily:"Georgia,serif" }}>Loading…</div>
-      </div>
-    );
-  }
-
-  // Not signed in
-  if (!user) return <LoginScreen />;
-
   const TABS = [{id:"home",label:"Home",emoji:"🏠"},{id:"log",label:"Log",emoji:"📝"},{id:"plan",label:"Plan",emoji:"🍽️"},{id:"body",label:"Body",emoji:"⚖️"},{id:"supps",label:"Supps",emoji:"💊"}];
 
   return (
@@ -1044,9 +975,6 @@ export default function App() {
         {tab==="body"  && <BodyTab  weightLog={weightLog} onAdd={addWeight} photos={photos} onAddPhoto={addPhoto} onDeletePhoto={deletePhoto} />}
         {tab==="supps" && <SuppsTab suppLog={suppLog} onToggle={toggleSupp} />}
       </div>
-
-      {/* Sign out button - top right */}
-      <button type="button" onClick={()=>signOut(auth)} style={{ position:"fixed", top:12, right:12, padding:"6px 12px", background:"rgba(0,0,0,0.3)", color:"#fff", border:"none", borderRadius:8, fontSize:11, cursor:"pointer", zIndex:998 }}>Sign out</button>
 
       {/* Bottom nav */}
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, background:"#fff", zIndex:999, borderTop:"1px solid #eee", display:"flex", boxShadow:"0 -4px 24px rgba(0,0,0,0.08)" }}>
