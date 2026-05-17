@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from "recharts";
 import { db, auth } from "./firebase.js";
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
-import { signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
+import { signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -244,7 +244,7 @@ function LoginScreen({ onLogin }) {
   async function handleLogin() {
     setLoading(true); setError("");
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      await signInWithRedirect(auth, new GoogleAuthProvider());
     } catch (e) {
       setError("Sign in failed. Please try again.");
     }
@@ -907,6 +907,7 @@ export default function App() {
 
   // Auth listener
   useEffect(() => {
+    getRedirectResult(auth).catch(() => {});
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u || null);
     });
