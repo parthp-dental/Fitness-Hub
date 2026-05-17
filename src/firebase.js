@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAXgzrGv8van-F99D8HNTKMYqE0gjgblw",
+  apiKey: "AIzaSyAXgzrGvg8van-F99D8HNTKMYqE0gjgblw",
   authDomain: "my-fitness-hub-b12ce.firebaseapp.com",
   projectId: "my-fitness-hub-b12ce",
   storageBucket: "my-fitness-hub-b12ce.firebasestorage.app",
