@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from "recharts";
 import { db, auth } from "./firebase.js";
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
-import { signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged } from "firebase/auth";
+import { signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut, onAuthStateChanged, getAuth } from "firebase/auth";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -907,12 +907,13 @@ export default function App() {
 
   // Auth listener
   useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => { if (result?.user) setUser(result.user); })
-      .catch(() => {})
-      .finally(() => {
-        onAuthStateChanged(auth, (u) => { setUser(u || null); });
-      });
+    // onAuthStateChanged handles everything — works after redirect too
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u || null);
+    });
+    // Process redirect result silently
+    getRedirectResult(auth).catch(() => {});
+    return unsub;
   }, []);
 
   // Load data when user logs in
