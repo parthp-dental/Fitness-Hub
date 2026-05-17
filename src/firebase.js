@@ -1,6 +1,6 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAXgzrGvg8van-F99D8HNTKMYqE0gjgblw",
@@ -10,8 +10,7 @@ const firebaseConfig = {
   messagingSenderId: "518738323828",
   appId: "1:518738323828:web:5983222c6d67259aa1e421"
 };
-const app = initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
-export const provider = new GoogleAuthProvider();
+const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
