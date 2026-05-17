@@ -5,7 +5,7 @@ import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "firebase/fi
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const TARGETS = { kcal: 1950, protein: 134, carbs: 230, fat: 55 };
+const TARGETS = { kcal: 1950, protein: 134, carbs: 230, fat: 55 }; 
 
 const MEALS = [
   { id: "breakfast", label: "Breakfast", emoji: "🌅", time: "7:00am", kcal: 362, protein: 50, carbs: 24, fat: 7,
