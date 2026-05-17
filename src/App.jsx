@@ -907,11 +907,12 @@ export default function App() {
 
   // Auth listener
   useEffect(() => {
-    getRedirectResult(auth).catch(() => {});
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u || null);
-    });
-    return unsub;
+    getRedirectResult(auth)
+      .then((result) => { if (result?.user) setUser(result.user); })
+      .catch(() => {})
+      .finally(() => {
+        onAuthStateChanged(auth, (u) => { setUser(u || null); });
+      });
   }, []);
 
   // Load data when user logs in
