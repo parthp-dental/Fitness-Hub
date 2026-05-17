@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAXgzrGvg8van-F99D8HNTKMYqE0gjgblw",
@@ -12,6 +13,4 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
-
-// Fixed user ID — this is your personal app, no login needed
-export const UID = "parth-dental-fitness";
+export const auth = getAuth(app);
