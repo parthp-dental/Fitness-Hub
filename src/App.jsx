@@ -1068,18 +1068,18 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
   // Each row has 3 equal columns
   // Numbers sit in lower 40% of each cell
   // METRICS order: Weight, BFR%, BMI, Muscle%, Water%, Bone, Protein%, BMR, Visceral
-  // Zones measured precisely from real HF Fitness screenshot
-  // Format: [x1%, y1%, x2%, y2%] as fraction of total image dimensions
+  // Zones pixel-measured from real HF Fitness screenshot (1440x3168)
+  // Format: [x1%, y1%, x2%, y2%] — tight around number pixels only
   const ZONES = [
-    [0.04, 0.21, 0.34, 0.47],  // Weight (top-left)
-    [0.33, 0.23, 0.67, 0.47],  // BFR% (top-middle)
-    [0.66, 0.21, 0.96, 0.47],  // BMI (top-right)
-    [0.06, 0.46, 0.31, 0.68],  // Muscle% (mid-left)
-    [0.38, 0.46, 0.62, 0.68],  // Body Water% (mid-middle)
-    [0.69, 0.46, 0.94, 0.68],  // Bone mass (mid-right)
-    [0.02, 0.71, 0.34, 0.93],  // Protein% (bot-left)
-    [0.33, 0.71, 0.67, 0.93],  // BMR (bot-middle)
-    [0.66, 0.71, 0.98, 0.93],  // Visceral fat (bot-right)
+    [0.03, 0.21, 0.36, 0.47],  // Weight     — confirmed teal 1.9%
+    [0.31, 0.23, 0.69, 0.47],  // BFR%       — confirmed teal 1.1%
+    [0.64, 0.21, 0.97, 0.47],  // BMI        — confirmed teal 1.7%
+    [0.10, 0.45, 0.27, 0.68],  // Muscle%    — confirmed teal 2.7%
+    [0.41, 0.45, 0.58, 0.68],  // Body Water% — confirmed teal 2.4%
+    [0.74, 0.45, 0.88, 0.68],  // Bone mass  — confirmed teal 3.8%
+    [0.07, 0.70, 0.34, 0.74],  // Protein%   — tight y band
+    [0.33, 0.70, 0.67, 0.74],  // BMR        — tight y band
+    [0.66, 0.71, 0.93, 0.74],  // Visceral   — tight y band
   ];
   const METRIC_KEYS = ["weight","bodyFat","bmi","muscleRate","bodyWater","boneMass","proteinRate","bmr","visceralFat"];
   const METRIC_LABELS = ["Weight","Body Fat%","BMI","Muscle%","Body Water%","Bone Mass","Protein%","BMR","Visceral Fat"];
