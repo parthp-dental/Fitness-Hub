@@ -945,6 +945,10 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
   const [progressEx, setProgressEx] = useState("");
   const [toast, setToast] = useState("");
   const [saving, setSaving] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(false);
+  const [extraBlocks, setExtraBlocks] = useState([]);
+  const [showExtraBlock, setShowExtraBlock] = useState(false);
+  const [extraCardio, setExtraCardio] = useState({ type:"Incline Walk", duration:"", distance:"", notes:"" });
 
   function showToast(msg) { setToast(msg); setTimeout(()=>setToast(""),2500); }
   const exDb = mode==="weights"?GYM_EXERCISES:mode==="bodyweight"?BW_EXERCISES:{};
