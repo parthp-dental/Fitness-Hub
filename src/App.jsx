@@ -1138,13 +1138,13 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
     if (!file) return;
     e.target.value = "";
     if (!tReady || !window.Tesseract) {
-      setScanError("OCR engine still loading — please wait a few seconds and try again.");
+      setScanError("OCR engine still loading — wait a few seconds and try again.");
       return;
     }
     setScanning(true); setScanResult(null); setScanError(""); setSaved(false);
 
     try {
-      setProgress("Loading image…");
+      setProgress("Loading image...");
       const img = await new Promise((res, rej) => {
         const i = new Image();
         i.onload = () => res(i);
@@ -1152,33 +1152,123 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
         i.src = URL.createObjectURL(file);
       });
       const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
+      canvas.width = img.width; canvas.height = img.height;
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0);
+      const W = img.width, H = img.height;
 
-      const W = canvas.width;
-      const H = canvas.height;
+      // Find the 3 white bands (each grid row has its own white band)
+      // Scan for rows with >50% white pixels
+      const full = ctx.getImageData(0, 0, W, H).data;
+      function rowWhitePct(y) {
+        let w = 0;
+        for (let x = 0; x < W; x++) {
+          const i = (y*W+x)*4;
+          if (full[i]>230 && full[i+1]>230 && full[i+2]>230) w++;
+        }
+        return w/W;
+      }
+
+      // Find 3 white bands
+      const bands = [];
+      let inBand = false, bandStart = 0;
+      for (let y = 0; y < H; y++) {
+        const isWhite = rowWhitePct(y) > 0.5;
+        if (isWhite && !inBand) { inBand = true; bandStart = y; }
+        else if (!isWhite && inBand) {
+          if (y-bandStart > 50) bands.push([bandStart, y]);
+          inBand = false;
+        }
+      }
+      if (inBand) bands.push([bandStart, H]);
+
+      // Take first 3 significant bands (grid rows)
+      const gridBands = bands.filter(([s,e]) => e-s > 100).slice(0,3);
+      if (gridBands.length < 3) throw new Error("Could not find all 3 grid rows. Make sure the full HF Fitness results screen is visible.");
+
+      // Numbers sit at ~75% down each white band
+      const METRICS = [
+        ["weight","bodyFat","bmi"],
+        ["muscleRate","bodyWater","boneMass"],
+        ["proteinRate","bmr","visceralFat"]
+      ];
+      const RANGES = {
+        weight:[40,150], bodyFat:[5,50], bmi:[15,40],
+        muscleRate:[25,70], bodyWater:[40,80], boneMass:[1,5],
+        proteinRate:[10,30], bmr:[1000,2500], visceralFat:[1,30]
+      };
+
+      function fitRange(raw, key) {
+        if (raw === null || isNaN(raw)) return null;
+        const [lo,hi] = RANGES[key];
+        for (const div of [1,10,100]) {
+          const c = raw/div;
+          if (c>=lo && c<=hi) return Math.round(c*10)/10;
+        }
+        return null;
+      }
+
+      async function readZoneNum(x1,y1,w,h,psm=8) {
+        const scale = 5;
+        const zc = document.createElement("canvas");
+        zc.width = w*scale+80; zc.height = h*scale+80;
+        const zx = zc.getContext("2d");
+        zx.fillStyle = "white"; zx.fillRect(0,0,zc.width,zc.height);
+        // Draw scaled zone
+        const tmp = document.createElement("canvas");
+        tmp.width = w; tmp.height = h;
+        tmp.getContext("2d").putImageData(ctx.getImageData(x1,y1,w,h),0,0);
+        // Convert blue pixels to black
+        const id = tmp.getContext("2d").getImageData(0,0,w,h);
+        const d = id.data;
+        for (let i=0;i<d.length;i+=4) {
+          if (d[i]<130 && d[i+1]>100 && d[i+2]>170) {
+            d[i]=d[i+1]=d[i+2]=0;
+          } else {
+            d[i]=d[i+1]=d[i+2]=255;
+          }
+          d[i+3]=255;
+        }
+        tmp.getContext("2d").putImageData(id,0,0);
+        zx.drawImage(tmp,40,40,w*scale,h*scale);
+        try {
+          const r = await window.Tesseract.recognize(zc,"eng",{
+            tessedit_char_whitelist:"0123456789.",
+            tessedit_pageseg_mode:String(psm),
+          });
+          const t = r.data.text.trim();
+          const m = t.match(/\d+\.?\d*/);
+          return m ? parseFloat(m[0]) : null;
+        } catch { return null; }
+      }
+
       const results = {};
+      const colW = Math.floor(W/3);
+      const halfH = 50;
 
-      for (let i = 0; i < ZONES.length; i++) {
-        const [x1p, y1p, x2p, y2p] = ZONES[i];
-        const x = Math.round(x1p * W);
-        const y = Math.round(y1p * H);
-        const w = Math.round((x2p - x1p) * W);
-        const h = Math.round((y2p - y1p) * H);
-        setProgress("Reading " + METRIC_LABELS[i] + "…");
-        results[METRIC_KEYS[i]] = await readZone(canvas, x, y, w, h);
+      for (let row=0; row<3; row++) {
+        const [bStart, bEnd] = gridBands[row];
+        const bandH = bEnd - bStart;
+        const numCenterY = Math.round(bStart + bandH * 0.75);
+        setProgress("Reading row "+(row+1)+" of 3...");
+        for (let col=0; col<3; col++) {
+          const key = METRICS[row][col];
+          const x1 = col*colW, x2 = Math.min((col+1)*colW, W);
+          const y1 = numCenterY-halfH, y2 = numCenterY+halfH;
+          let raw = await readZoneNum(x1,y1,x2-x1,y2-y1,8);
+          let val = fitRange(raw, key);
+          if (val === null) {
+            raw = await readZoneNum(x1,y1,x2-x1,y2-y1,11);
+            val = fitRange(raw, key);
+          }
+          results[key] = val;
+        }
       }
 
-      // Sanity check
-      if (!results.weight || results.weight < 30 || results.weight > 200) {
-        throw new Error("Weight not detected correctly (" + results.weight + "). Try a clearer screenshot with the full grid visible.");
-      }
-
+      if (!results.weight) throw new Error("Weight not detected. Make sure the full HF Fitness results grid is visible and try again.");
       setScanResult({ ...results, date: today });
     } catch(err) {
-      setScanError(err.message || "Could not read screenshot. Try again with full grid visible.");
+      setScanError(err.message || "Could not read screenshot. Make sure the full HF Fitness results grid is visible.");
     }
     setScanning(false); setProgress("");
   }
