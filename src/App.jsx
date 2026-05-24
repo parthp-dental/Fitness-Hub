@@ -1003,60 +1003,133 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
   const [scanResult, setScanResult] = useState(null);
   const [scanError, setScanError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [progress, setProgress] = useState("");
+  const [tReady, setTReady] = useState(false);
   const today = getToday();
+  const baseline = { weight:66.2, bodyFat:22.7, muscleRate:46.3, bmi:23.5, bmr:1394, visceralFat:8 };
 
-  const resizeForAPI = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Read failed"));
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("Image failed"));
-      img.onload = () => {
-        try {
-          const maxD = 1000;
-          const scale = Math.min(1, maxD / Math.max(img.width, img.height));
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.9).split(",")[1]);
-        } catch (err) { reject(err); }
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
+  // Load Tesseract.js from CDN once
+  useEffect(() => {
+    if (window.Tesseract) { setTReady(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/tesseract.js@5/dist/tesseract.min.js";
+    script.onload = () => setTReady(true);
+    script.onerror = () => setScanError("Could not load OCR engine. Check your internet connection.");
+    document.head.appendChild(script);
+  }, []);
+
+  // Extract and OCR a single zone from the canvas
+  async function readZone(canvas, x, y, w, h) {
+    const scale = 3;
+    const zc = document.createElement("canvas");
+    zc.width = Math.round(w * scale);
+    zc.height = Math.round(h * scale);
+    const zctx = zc.getContext("2d");
+    zctx.drawImage(canvas, x, y, w, h, 0, 0, zc.width, zc.height);
+
+    // Convert to greyscale + threshold: teal (#3fb8c0 ≈ grey 147) → black, white → white
+    const imgData = zctx.getImageData(0, 0, zc.width, zc.height);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const grey = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      const val = grey < 170 ? 0 : 255;
+      d[i] = d[i + 1] = d[i + 2] = val;
+      d[i + 3] = 255;
+    }
+    zctx.putImageData(imgData, 0, 0);
+
+    try {
+      const result = await window.Tesseract.recognize(zc, "eng", {
+        tessedit_char_whitelist: "0123456789.",
+        tessedit_pageseg_mode: "7",
+      });
+      const txt = result.data.text.trim();
+      const match = txt.match(/[0-9]+\.?[0-9]*/);
+      return match ? parseFloat(match[0]) : null;
+    } catch { return null; }
+  }
 
   async function analyseScreenshot(e) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
-    setScanning(true); setScanResult(null); setScanError(""); setSaved(false);
-    try {
-      const base64 = await resizeForAPI(file);
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 500,
-          messages: [{
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: "image/jpeg", data: base64 } },
-              { type: "text", text: "This is a screenshot from a body composition scale app such as HF Fitness. Extract all numeric values visible. Return ONLY valid JSON with no markdown, using exactly these keys: weight, bodyFat, muscleRate, bmi, bmr, visceralFat, bodyWater, boneMass, proteinRate. Use null for any value not visible." }
-            ]
-          }]
-        })
-      });
-      const data = await res.json();
-      const txt = data.content.filter(b=>b.type==="text").map(b=>b.text).join("").replace(/```json|```/g,"").trim();
-      const result = JSON.parse(txt);
-      setScanResult({ ...result, date: today });
-    } catch(err) {
-      setScanError("Could not read screenshot. Make sure the numbers are clearly visible.");
+    if (!tReady || !window.Tesseract) {
+      setScanError("OCR engine still loading — please wait a few seconds and try again.");
+      return;
     }
-    setScanning(false);
+    setScanning(true); setScanResult(null); setScanError(""); setSaved(false);
+
+    try {
+      // Load image onto canvas
+      setProgress("Loading image…");
+      const img = await new Promise((res, rej) => {
+        const i = new Image();
+        i.onload = () => res(i);
+        i.onerror = rej;
+        i.src = URL.createObjectURL(file);
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+
+      // Find the white table by scanning for rows with >65% white pixels
+      setProgress("Finding table…");
+      const pd = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      function whiteRatio(y) {
+        let w = 0;
+        for (let x = 0; x < canvas.width; x++) {
+          const i = (y * canvas.width + x) * 4;
+          if (pd[i] > 200 && pd[i + 1] > 200 && pd[i + 2] > 200) w++;
+        }
+        return w / canvas.width;
+      }
+
+      // Table starts somewhere between 25-65% down the image
+      let tableStart = Math.round(canvas.height * 0.35);
+      for (let y = Math.round(canvas.height * 0.25); y < canvas.height * 0.65; y++) {
+        if (whiteRatio(y) > 0.65) { tableStart = y; break; }
+      }
+      // Table ends somewhere between 65-90% down
+      let tableEnd = Math.round(canvas.height * 0.82);
+      for (let y = Math.round(canvas.height * 0.88); y > tableStart + 50; y--) {
+        if (whiteRatio(y) > 0.65) { tableEnd = y; break; }
+      }
+
+      const tH = tableEnd - tableStart;
+      const rowH = tH / 3;
+      const colW = canvas.width / 3;
+
+      // HF Fitness fixed grid layout — always same order:
+      // [0] Weight   [1] BFR%    [2] BMI
+      // [3] Muscle%  [4] Water%  [5] Bone mass
+      // [6] Protein% [7] BMR     [8] Visceral fat
+      const METRICS = ["weight","bodyFat","bmi","muscleRate","bodyWater","boneMass","proteinRate","bmr","visceralFat"];
+      const results = {};
+
+      for (let i = 0; i < 9; i++) {
+        const row = Math.floor(i / 3);
+        const col = i % 3;
+        // Number sits in the lower 45% of each cell, inner 85% of width
+        const x = Math.round(col * colW + colW * 0.075);
+        const y = Math.round(tableStart + row * rowH + rowH * 0.55);
+        const w = Math.round(colW * 0.85);
+        const h = Math.round(rowH * 0.4);
+        setProgress("Reading " + METRICS[i] + "…");
+        results[METRICS[i]] = await readZone(canvas, x, y, w, h);
+      }
+
+      // Sanity check — weight should be in human range
+      if (!results.weight || results.weight < 30 || results.weight > 200) {
+        throw new Error("Could not reliably detect values. Make sure the full results screen is visible.");
+      }
+
+      setScanResult({ ...results, date: today });
+    } catch(err) {
+      setScanError(err.message || "Could not read screenshot. Make sure the HF Fitness results grid is fully visible.");
+    }
+    setScanning(false); setProgress("");
   }
 
   async function confirmSave() {
@@ -1066,54 +1139,57 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
     setTimeout(() => setSaved(false), 3000);
   }
 
-  const latest = bodyScanLog.length > 0 ? bodyScanLog[bodyScanLog.length-1] : null;
-  const baseline = { weight:66.2, bodyFat:22.7, muscleRate:46.3, bmi:23.5, bmr:1394, visceralFat:8 };
-
-  function diff(key, current, lower_is_better=true) {
-    if (!latest || latest[key]==null) return null;
-    const d = (latest[key] - baseline[key]).toFixed(1);
-    const good = lower_is_better ? parseFloat(d) < 0 : parseFloat(d) > 0;
-    return { d, good };
-  }
+  const latest = bodyScanLog.length > 0 ? bodyScanLog[bodyScanLog.length - 1] : null;
 
   return (
     <div>
-      {/* Upload screenshot */}
       <Card>
         <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e", marginBottom:4 }}>📷 Upload Body Scan Screenshot</div>
         <div style={{ fontSize:11, color:"#888", marginBottom:16, lineHeight:1.6 }}>
-          Take a screenshot of your HF Fitness result → upload here → AI reads all values automatically.
+          Take a screenshot of your HF Fitness results → upload here → all values read automatically. No internet required after first load.
         </div>
-        <div style={{ position:"relative", borderRadius:14, overflow:"hidden", marginBottom:10 }}>
-          <div style={{ padding:"18px", background:scanning?"#aaa":"#1a1a2e", color:"#fff", textAlign:"center", fontSize:14, fontWeight:700, borderRadius:14, pointerEvents:"none" }}>
-            {scanning ? "🔍 Reading your scan…" : "📱 Upload HF Fitness Screenshot"}
+
+        {!tReady && (
+          <div style={{ background:"#fff7ed", borderRadius:10, padding:"10px 14px", marginBottom:12, fontSize:12, color:"#e85d26" }}>
+            ⏳ Loading OCR engine for the first time… (~5 seconds)
           </div>
-          <input type="file" accept="image/*" onChange={analyseScreenshot} disabled={scanning}
-            style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:scanning?"not-allowed":"pointer" }}/>
+        )}
+
+        <div style={{ position:"relative", borderRadius:14, overflow:"hidden", marginBottom:10 }}>
+          <div style={{ padding:"18px", background:scanning||!tReady?"#aaa":"#1a1a2e", color:"#fff", textAlign:"center", fontSize:14, fontWeight:700, borderRadius:14, pointerEvents:"none" }}>
+            {scanning ? "🔍 " + progress : tReady ? "📱 Upload HF Fitness Screenshot" : "⏳ Loading scanner…"}
+          </div>
+          <input type="file" accept="image/*" onChange={analyseScreenshot} disabled={scanning||!tReady}
+            style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:scanning||!tReady?"not-allowed":"pointer" }}/>
         </div>
-        {scanning && <div style={{ textAlign:"center", fontSize:12, color:"#888" }}>AI is extracting your body composition data…</div>}
-        {scanError && <div style={{ fontSize:12, color:"#ef4444", textAlign:"center", padding:"8px" }}>{scanError}</div>}
+
+        {scanError && (
+          <div style={{ fontSize:12, color:"#ef4444", textAlign:"center", padding:"10px", background:"#fff0f0", borderRadius:10 }}>{scanError}</div>
+        )}
       </Card>
 
-      {/* Scan result */}
+      {/* Scan result confirmation */}
       {scanResult && !saved && (
         <Card>
-          <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e", marginBottom:4 }}>✅ Scan detected — {fmtDate(scanResult.date)}</div>
-          <div style={{ fontSize:11, color:"#888", marginBottom:14 }}>Check the values below then tap Save.</div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e", marginBottom:4 }}>✅ Values detected — {fmtDate(scanResult.date)}</div>
+          <div style={{ fontSize:11, color:"#888", marginBottom:14 }}>Check these match your HF Fitness screen then save.</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
             {[
               ["Weight", scanResult.weight, "kg"],
               ["Body Fat", scanResult.bodyFat, "%"],
-              ["Muscle Rate", scanResult.muscleRate, "%"],
               ["BMI", scanResult.bmi, ""],
-              ["BMR", scanResult.bmr, "kcal"],
-              ["Visceral Fat", scanResult.visceralFat, ""],
+              ["Muscle Rate", scanResult.muscleRate, "%"],
               ["Body Water", scanResult.bodyWater, "%"],
               ["Bone Mass", scanResult.boneMass, "kg"],
-            ].filter(([,v])=>v!=null).map(([label,value,unit])=>(
-              <div key={label} style={{ background:"#f8f6f2", borderRadius:10, padding:"10px 12px" }}>
-                <div style={{ fontSize:10, color:"#aaa", fontFamily:"monospace", marginBottom:4 }}>{label.toUpperCase()}</div>
-                <div style={{ fontSize:18, fontWeight:800, color:"#1a1a2e" }}>{value}<span style={{ fontSize:12, color:"#888" }}>{unit}</span></div>
+              ["Protein Rate", scanResult.proteinRate, "%"],
+              ["BMR", scanResult.bmr, "kcal"],
+              ["Visceral Fat", scanResult.visceralFat, ""],
+            ].map(([label, value, unit]) => (
+              <div key={label} style={{ background:"#f8f6f2", borderRadius:10, padding:"10px 8px", textAlign:"center" }}>
+                <div style={{ fontSize:9, color:"#aaa", fontFamily:"monospace", marginBottom:4 }}>{label.toUpperCase()}</div>
+                <div style={{ fontSize:17, fontWeight:800, color:value!=null?"#1a1a2e":"#ddd" }}>
+                  {value != null ? value : "–"}<span style={{ fontSize:10, color:"#888" }}>{unit}</span>
+                </div>
               </div>
             ))}
           </div>
@@ -1126,7 +1202,7 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
       {saved && (
         <Card style={{ background:"#f0fdf4", border:"1px solid #86efac", textAlign:"center", padding:"20px" }}>
           <div style={{ fontSize:24, marginBottom:8 }}>✅</div>
-          <div style={{ fontSize:14, fontWeight:700, color:"#22c55e" }}>Saved! Your body scan is logged.</div>
+          <div style={{ fontSize:14, fontWeight:700, color:"#22c55e" }}>Saved successfully!</div>
         </Card>
       )}
 
@@ -1134,7 +1210,7 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
       {latest && (
         <Card>
           <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e", marginBottom:4 }}>📊 Progress vs Baseline (18 May)</div>
-          <div style={{ fontSize:11, color:"#888", marginBottom:14 }}>Latest scan vs your starting measurements</div>
+          <div style={{ fontSize:11, color:"#888", marginBottom:14 }}>Latest scan vs starting measurements</div>
           {[
             ["Weight", "weight", "kg", true],
             ["Body Fat", "bodyFat", "%", true],
@@ -1143,16 +1219,18 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
             ["Visceral Fat", "visceralFat", "", true],
             ["BMR", "bmr", "kcal", false],
           ].map(([label, key, unit, lowerBetter]) => {
-            if (latest[key]==null) return null;
-            const d = diff(key, latest[key], lowerBetter);
-            const arrow = d ? (parseFloat(d.d) < 0 ? "↓" : parseFloat(d.d) > 0 ? "↑" : "→") : "";
-            const color = d ? (d.good ? "#22c55e" : parseFloat(d.d)===0 ? "#888" : "#e85d26") : "#888";
+            if (latest[key] == null) return null;
+            const diff = (latest[key] - baseline[key]).toFixed(1);
+            const isGood = lowerBetter ? parseFloat(diff) < 0 : parseFloat(diff) > 0;
+            const isNeutral = parseFloat(diff) === 0;
+            const arrow = parseFloat(diff) < 0 ? "↓" : parseFloat(diff) > 0 ? "↑" : "→";
+            const color = isNeutral ? "#888" : isGood ? "#22c55e" : "#e85d26";
             return (
               <div key={key} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 0", borderBottom:"1px solid #f8f8f8" }}>
                 <span style={{ fontSize:12, color:"#555" }}>{label}</span>
                 <div style={{ textAlign:"right" }}>
                   <span style={{ fontSize:14, fontWeight:700, color:"#1a1a2e" }}>{latest[key]}{unit}</span>
-                  {d && <span style={{ fontSize:11, color, fontWeight:700, marginLeft:8 }}>{arrow} {Math.abs(parseFloat(d.d))}{unit}</span>}
+                  <span style={{ fontSize:11, color, fontWeight:700, marginLeft:8 }}>{arrow} {Math.abs(parseFloat(diff))}{unit}</span>
                 </div>
               </div>
             );
@@ -1161,21 +1239,24 @@ function BodyScanTab({ bodyScanLog, onSaveScan }) {
         </Card>
       )}
 
-      {/* Scan history */}
-      {bodyScanLog.length > 1 && (
+      {/* History */}
+      {bodyScanLog.length > 0 && (
         <Card>
           <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e", marginBottom:12 }}>📋 Scan History ({bodyScanLog.length} scans)</div>
           {[...bodyScanLog].reverse().map((scan, i) => (
-            <div key={i} style={{ padding:"10px 0", borderBottom:"1px solid #f8f8f8", display:"flex", justifyContent:"space-between" }}>
+            <div key={i} style={{ padding:"10px 0", borderBottom:"1px solid #f8f8f8", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
               <div>
                 <div style={{ fontSize:12, fontWeight:700, color:"#1a1a2e" }}>{fmtDate(scan.date)}</div>
                 <div style={{ fontSize:11, color:"#888", marginTop:2 }}>
-                  {scan.weight&&`${scan.weight}kg`}{scan.bodyFat&&` · ${scan.bodyFat}% BF`}{scan.muscleRate&&` · ${scan.muscleRate}% muscle`}
+                  {scan.weight && scan.weight + "kg"}
+                  {scan.bodyFat && " · " + scan.bodyFat + "% BF"}
+                  {scan.muscleRate && " · " + scan.muscleRate + "% muscle"}
+                  {scan.visceralFat && " · VF:" + scan.visceralFat}
                 </div>
               </div>
-              {scan.weight && baseline.weight && (
-                <div style={{ fontSize:12, fontWeight:700, color:scan.weight<baseline.weight?"#22c55e":"#e85d26" }}>
-                  {scan.weight<baseline.weight?"↓":"↑"}{Math.abs(scan.weight-baseline.weight).toFixed(1)}kg
+              {scan.weight && (
+                <div style={{ fontSize:12, fontWeight:700, color:scan.weight < baseline.weight ? "#22c55e" : "#e85d26" }}>
+                  {scan.weight < baseline.weight ? "↓" : "↑"}{Math.abs(scan.weight - baseline.weight).toFixed(1)}kg
                 </div>
               )}
             </div>
