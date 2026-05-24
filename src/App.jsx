@@ -429,6 +429,158 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
 }
 
 
+
+// ── Nutrition Label Scanner ──────────────────────────────────────────────────
+
+function NutritionScanModal({ onConfirm, onClose }) {
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const [tReady, setTReady] = useState(!!window.Tesseract);
+  const [foodName, setFoodName] = useState("");
+  const [editedMacros, setEditedMacros] = useState(null);
+
+  useEffect(() => {
+    if (window.Tesseract) { setTReady(true); return; }
+    const script = document.createElement("script");
+    script.src = "https://unpkg.com/tesseract.js@5/dist/tesseract.min.js";
+    script.onload = () => setTReady(true);
+    document.head.appendChild(script);
+  }, []);
+
+  function extractMacros(text) {
+    const t = text.toLowerCase().replace(/[,،]/g, (m, i, s) => {
+      // Only replace comma with dot if surrounded by digits
+      const before = s[i-1], after = s[i+1];
+      return (before && after && /\d/.test(before) && /\d/.test(after)) ? '.' : m;
+    });
+
+    const result = {};
+
+    // Calories — find number before/after kcal
+    const kcalMatch = t.match(/(\d+)\s*kcal/);
+    if (kcalMatch) result.kcal = parseFloat(kcalMatch[1]);
+    else {
+      const calMatch = t.match(/calorie[s]?\D{0,5}(\d+)/);
+      if (calMatch) result.kcal = parseFloat(calMatch[1]);
+    }
+
+    // Protein
+    const protMatch = t.match(/protein[^\d]*(\d+\.?\d*)/);
+    if (protMatch) result.protein = parseFloat(protMatch[1]);
+
+    // Carbs — first line with carbohydrate/carbs, skip "of which"
+    for (const line of t.split('
+')) {
+      if (/carbohydrat|total carb/.test(line) && !/of which|which/.test(line)) {
+        const m = line.match(/(\d+\.?\d*)/);
+        if (m) { result.carbs = parseFloat(m[1]); break; }
+      }
+    }
+
+    // Fat — first line with "fat" but not saturates/trans
+    for (const line of t.split('
+')) {
+      if (/fat/.test(line) && !/saturate|trans/.test(line)) {
+        const nums = [...line.matchAll(/(\d+\.?\d*)/g)].map(m => parseFloat(m[1]));
+        const val = nums.find(n => n > 0 && n < 100);
+        if (val !== undefined) { result.fat = val; break; }
+      }
+    }
+
+    return result;
+  }
+
+  async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    e.target.value = "";
+    if (!tReady || !window.Tesseract) { setError("Scanner still loading, try again in a few seconds."); return; }
+    setScanning(true); setResult(null); setError("");
+    try {
+      const url = URL.createObjectURL(file);
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+      const canvas = document.createElement("canvas");
+      const scale = Math.min(3, 2400/Math.max(img.width,img.height));
+      canvas.width = img.width*scale; canvas.height = img.height*scale;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      // Enhance contrast
+      const id = ctx.getImageData(0,0,canvas.width,canvas.height);
+      const d = id.data;
+      for (let i=0;i<d.length;i+=4) {
+        const grey = 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        const v = grey < 128 ? Math.max(0,grey-30) : Math.min(255,grey+30);
+        d[i]=d[i+1]=d[i+2]=v;
+      }
+      ctx.putImageData(id,0,0);
+      const ocr = await window.Tesseract.recognize(canvas,"eng",{ tessedit_pageseg_mode:"6" });
+      const text = ocr.data.text;
+      const macros = extractMacros(text);
+      if (!macros.kcal && !macros.protein) throw new Error("Could not find nutrition info. Make sure calories and protein are visible.");
+      setResult(macros);
+      setEditedMacros({...macros});
+    } catch(err) {
+      setError(err.message || "Could not read label. Try a clearer, well-lit photo.");
+    }
+    setScanning(false);
+  }
+
+  function update(key, val) {
+    setEditedMacros(prev => ({...prev, [key]: parseFloat(val)||0}));
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:99998, display:"flex", alignItems:"flex-end", justifyContent:"center" }} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, background:"#fff", borderRadius:"20px 20px 0 0", padding:"20px 20px 36px", maxHeight:"90vh", overflowY:"auto" }}>
+        <div style={{ width:36, height:4, background:"#eee", borderRadius:99, margin:"0 auto 16px" }}/>
+        <div style={{ fontSize:16, fontWeight:700, color:"#1a1a2e", marginBottom:4 }}>📸 Scan Nutrition Label</div>
+        <div style={{ fontSize:12, color:"#888", marginBottom:16, lineHeight:1.6 }}>Take a photo or screenshot of any nutrition label. Works with supermarket labels, apps, websites.</div>
+
+        {!result && (
+          <div>
+            {!tReady && <div style={{ fontSize:12, color:"#e85d26", background:"#fff7ed", borderRadius:10, padding:"8px 12px", marginBottom:12 }}>⏳ Loading scanner... wait a few seconds</div>}
+            <div style={{ position:"relative", borderRadius:14, overflow:"hidden", marginBottom:10 }}>
+              <div style={{ padding:"18px", background:scanning||!tReady?"#aaa":"#1a1a2e", color:"#fff", textAlign:"center", fontSize:14, fontWeight:700, borderRadius:14, pointerEvents:"none" }}>
+                {scanning ? "🔍 Reading label..." : "📷 Upload Label Photo or Screenshot"}
+              </div>
+              <input type="file" accept="image/*" onChange={handleUpload} disabled={scanning||!tReady}
+                style={{ position:"absolute", inset:0, opacity:0, width:"100%", height:"100%", cursor:"pointer" }}/>
+            </div>
+            {error && <div style={{ fontSize:12, color:"#ef4444", background:"#fff0f0", borderRadius:10, padding:"10px 12px", textAlign:"center" }}>{error}</div>}
+          </div>
+        )}
+
+        {result && editedMacros && (
+          <div>
+            <div style={{ fontSize:12, color:"#22c55e", fontWeight:700, marginBottom:12 }}>✅ Label read — check values and correct if needed</div>
+            <input value={foodName} onChange={e=>setFoodName(e.target.value)} placeholder="Food name (required) *"
+              style={{ width:"100%", padding:"12px", borderRadius:12, border:"1.5px solid #eee", fontSize:14, fontFamily:"inherit", outline:"none", background:"#fafafa", marginBottom:12, boxSizing:"border-box" }}/>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
+              {[["Calories (kcal)","kcal","#e85d26"],["Protein (g)","protein","#22c55e"],["Carbs (g)","carbs","#60a5fa"],["Fat (g)","fat","#f59e0b"]].map(([label,key,color])=>(
+                <div key={key}>
+                  <div style={{ fontSize:10, color, fontFamily:"monospace", fontWeight:700, marginBottom:4 }}>{label}</div>
+                  <input type="number" step="0.1" value={editedMacros[key]||""} onChange={e=>update(key,e.target.value)} placeholder="0"
+                    style={{ width:"100%", padding:"12px", borderRadius:10, border:`1.5px solid ${color}30`, fontSize:16, fontWeight:700, textAlign:"center", fontFamily:"inherit", outline:"none", background:`${color}08`, boxSizing:"border-box" }}/>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize:11, color:"#aaa", marginBottom:14, textAlign:"center" }}>Values are per 100g by default</div>
+            <button type="button" disabled={!foodName.trim()} onClick={()=>onConfirm({ name:foodName.trim(), kcal:editedMacros.kcal||0, protein:editedMacros.protein||0, carbs:editedMacros.carbs||0, fat:editedMacros.fat||0 })}
+              style={{ width:"100%", padding:"15px", background:foodName.trim()?"#22c55e":"#ccc", color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:foodName.trim()?"pointer":"not-allowed", marginBottom:10 }}>
+              ⭐ Save to My Foods
+            </button>
+            <button type="button" onClick={()=>{setResult(null);setEditedMacros(null);setFoodName("");}}
+              style={{ width:"100%", padding:"12px", background:"#f8f6f2", color:"#888", border:"none", borderRadius:14, fontSize:13, cursor:"pointer" }}>
+              📷 Scan another label
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Quantity Modal ──────────────────────────────────────────────────────────
 
 function QuantityModal({ item, onConfirm, onClose }) {
@@ -494,6 +646,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
   const [expandedMeal, setExpandedMeal] = useState(null);
   const [toast, setToast] = useState("");
   const [qtyItem, setQtyItem] = useState(null);
+  const [showScan, setShowScan] = useState(false);
   const [searchQ, setSearchQ] = useState("");
   const [searchRes, setSearchRes] = useState([]);
   const [manual, setManual] = useState({ name:"", kcal:"", protein:"", carbs:"", fat:"" });
@@ -549,6 +702,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
 
   return (
     <div>
+      {showScan && <NutritionScanModal onConfirm={(food)=>{ onSaveFood(food); setShowScan(false); showToast("⭐ "+food.name+" saved to My Foods!"); }} onClose={()=>setShowScan(false)}/>}
       {qtyItem && <QuantityModal item={qtyItem} onConfirm={(item)=>{ onAdd({id:Date.now()+"_"+Math.random(),...item}); showToast("✅ "+item.name+" added!"); setQtyItem(null); }} onClose={()=>setQtyItem(null)}/>}
       <Toast msg={toast}/>
       <DarkHeader tag="FOOD TRACKER" title="Log Food 📝">
@@ -660,7 +814,8 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
               <Card><div style={{ textAlign:"center", padding:"30px 0" }}>
                 <div style={{ fontSize:40, marginBottom:10 }}>⭐</div>
                 <div style={{ fontSize:14, fontWeight:600, color:"#888", marginBottom:6 }}>No saved foods yet</div>
-                <div style={{ fontSize:12, color:"#aaa" }}>Add foods in ✏️ Manual tab then tap "Save to My Foods"</div>
+                <div style={{ fontSize:12, color:"#aaa", marginBottom:14 }}>Scan a nutrition label or add manually</div>
+                <button type="button" onClick={()=>setShowScan(true)} style={{ padding:"12px 24px", background:"#1a1a2e", color:"#fff", border:"none", borderRadius:12, fontSize:13, fontWeight:700, cursor:"pointer" }}>📸 Scan Label</button>
               </div></Card>
             ):(
               <div>
@@ -711,8 +866,11 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
 
         {subTab==="manual"&&(
           <Card>
-            <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e", marginBottom:4 }}>✏️ Manual Entry</div>
-            <div style={{ fontSize:11, color:"#888", marginBottom:14 }}>Enter macros from a food label or menu.</div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e" }}>✏️ Manual Entry</div>
+              <button type="button" onClick={()=>setShowScan(true)} style={{ padding:"7px 14px", background:"#1a1a2e", color:"#fff", border:"none", borderRadius:10, fontSize:12, fontWeight:700, cursor:"pointer" }}>📸 Scan Label</button>
+            </div>
+            <div style={{ fontSize:11, color:"#888", marginBottom:14 }}>Enter macros manually, or tap Scan Label to use your camera.</div>
             <input value={manual.name} onChange={e=>setManual(p=>({...p,name:e.target.value}))} placeholder="Food name *" type="text"
               style={{ width:"100%", padding:"12px", borderRadius:10, border:"1.5px solid #eee", fontSize:14, fontFamily:"inherit", outline:"none", background:"#fafafa", marginBottom:10, boxSizing:"border-box" }}/>
             <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
