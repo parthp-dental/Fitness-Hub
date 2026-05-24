@@ -752,7 +752,27 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
                         </div>
                       ))}
                       <div style={{ marginTop:10 }}>
-                        <div style={{ fontSize:11, fontWeight:700, color:"#3b82f6", marginBottom:8 }}>+ Add item to {meal.label}</div>
+                        {/* Pick from My Foods */}
+                        {myFoods.length > 0 && (
+                          <div style={{ marginBottom:12 }}>
+                            <div style={{ fontSize:11, fontWeight:700, color:"#f59e0b", marginBottom:8 }}>⭐ Add from My Foods</div>
+                            <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:180, overflowY:"auto" }}>
+                              {myFoods.map((food,fi)=>(
+                                <button key={fi} type="button" onClick={()=>{ const item={name:food.name,kcal:food.kcal,protein:food.protein,carbs:food.carbs,fat:food.fat}; const updated=meals.map(m=>m.id===meal.id?{...m,items:[...m.items,item]}:m); onSaveMeals(updated); showToast("✅ "+food.name+" added to "+meal.label); }}
+                                  style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", background:"#fffbeb", border:"1.5px solid #fde68a", borderRadius:10, cursor:"pointer", textAlign:"left" }}>
+                                  <div>
+                                    <div style={{ fontSize:12, fontWeight:700, color:"#1a1a2e" }}>{food.name}</div>
+                                    <div style={{ fontSize:10, color:"#888", marginTop:2 }}>{food.kcal} kcal · {food.protein}g P · {food.carbs}g C · {food.fat}g F</div>
+                                  </div>
+                                  <div style={{ fontSize:18, color:"#f59e0b", flexShrink:0, marginLeft:8 }}>+</div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Manual add */}
+                        <div style={{ fontSize:11, fontWeight:700, color:"#3b82f6", marginBottom:8 }}>+ Add custom item</div>
                         <input value={newItem.name} onChange={e=>setNewItem(p=>({...p,name:e.target.value}))} placeholder="Item name *" type="text"
                           style={{ width:"100%", padding:"9px 10px", borderRadius:9, border:"1.5px solid #ddd", fontSize:13, fontFamily:"inherit", outline:"none", background:"#fff", marginBottom:8, boxSizing:"border-box" }}/>
                         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6, marginBottom:8 }}>
