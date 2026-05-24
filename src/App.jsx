@@ -8,30 +8,30 @@ const TARGETS = { kcal: 1950, protein: 134, carbs: 230, fat: 55 };
 const DEFAULT_MEALS = [
   { id: "breakfast", label: "Breakfast", emoji: "🌅", time: "7:00am",
     items: [
-      { name: "Actimel Original 100ml", kcal: 73, protein: 3, carbs: 11, fat: 1.5 },
-      { name: "ASDA Greek Yogurt 100g", kcal: 66, protein: 7, carbs: 8, fat: 0.5 },
-      { name: "Soya Protein Crispies 30g", kcal: 109, protein: 22.5, carbs: 2.3, fat: 0.7 },
-      { name: "Blueberries x5", kcal: 5, protein: 0, carbs: 1, fat: 0 },
-      { name: "Myprotein Whey Shake 25g", kcal: 109, protein: 17, carbs: 1.2, fat: 4 },
+      { name: "Actimel Original 100ml", kcal: 73, protein: 3, carbs: 11, fat: 1.5, defaultQty: 100, unit: "ml" },
+      { name: "ASDA Greek Yogurt 100g", kcal: 66, protein: 7, carbs: 8, fat: 0.5, defaultQty: 100, unit: "g" },
+      { name: "Soya Protein Crispies 30g", kcal: 109, protein: 22.5, carbs: 2.3, fat: 0.7, defaultQty: 30, unit: "g" },
+      { name: "Blueberries x5", kcal: 5, protein: 0, carbs: 1, fat: 0, defaultQty: 5, unit: "x" },
+      { name: "Myprotein Whey Shake 25g", kcal: 109, protein: 17, carbs: 1.2, fat: 4, defaultQty: 25, unit: "g" },
     ],
   },
   { id: "lunch", label: "Lunch", emoji: "☀️", time: "1:00pm",
     items: [
-      { name: "Chickpeas 150g (cooked)", kcal: 206, protein: 13, carbs: 26, fat: 4 },
-      { name: "Edamame Beans 100g", kcal: 155, protein: 12, carbs: 6.5, fat: 7.6 },
-      { name: "LM Vegan Sausages x2", kcal: 130, protein: 13, carbs: 5, fat: 5 },
-      { name: "Mixed Veg 150g", kcal: 50, protein: 3, carbs: 8, fat: 0.5 },
+      { name: "Chickpeas 150g (cooked)", kcal: 206, protein: 13, carbs: 26, fat: 4, defaultQty: 150, unit: "g" },
+      { name: "Edamame Beans 100g", kcal: 155, protein: 12, carbs: 6.5, fat: 7.6, defaultQty: 100, unit: "g" },
+      { name: "LM Vegan Sausages x2", kcal: 130, protein: 13, carbs: 5, fat: 5, defaultQty: 2, unit: "x" },
+      { name: "Mixed Veg 150g", kcal: 50, protein: 3, carbs: 8, fat: 0.5, defaultQty: 150, unit: "g" },
     ],
   },
   { id: "dinner", label: "Dinner", emoji: "🌙", time: "6:00pm",
     items: [
-      { name: "2 Rotlis (Aashirvaad atta)", kcal: 170, protein: 5.5, carbs: 36.5, fat: 0.7 },
-      { name: "Apetina Paneer 100g", kcal: 174, protein: 22, carbs: 3.2, fat: 8 },
-      { name: "Mixed salad veg", kcal: 15, protein: 1, carbs: 3, fat: 0 },
-      { name: "Green chutney + chilli sauce", kcal: 45, protein: 0.5, carbs: 9, fat: 0 },
-      { name: "Nasto 30g", kcal: 143, protein: 2, carbs: 17, fat: 7 },
-      { name: "KP Roasted Peanuts 30g", kcal: 177, protein: 8.5, carbs: 3.4, fat: 13.8 },
-      { name: "Myprotein Whey Shake 25g", kcal: 109, protein: 17, carbs: 1.2, fat: 4 },
+      { name: "2 Rotlis (Aashirvaad atta)", kcal: 170, protein: 5.5, carbs: 36.5, fat: 0.7, defaultQty: 2, unit: "x" },
+      { name: "Apetina Paneer 100g", kcal: 174, protein: 22, carbs: 3.2, fat: 8, defaultQty: 100, unit: "g" },
+      { name: "Mixed salad veg", kcal: 15, protein: 1, carbs: 3, fat: 0, defaultQty: 80, unit: "g" },
+      { name: "Green chutney + chilli sauce", kcal: 45, protein: 0.5, carbs: 9, fat: 0, defaultQty: 30, unit: "g" },
+      { name: "Nasto 30g", kcal: 143, protein: 2, carbs: 17, fat: 7, defaultQty: 30, unit: "g" },
+      { name: "KP Roasted Peanuts 30g", kcal: 177, protein: 8.5, carbs: 3.4, fat: 13.8, defaultQty: 30, unit: "g" },
+      { name: "Myprotein Whey Shake 25g", kcal: 109, protein: 17, carbs: 1.2, fat: 4, defaultQty: 25, unit: "g" },
     ],
   },
 ];
@@ -434,6 +434,7 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
 function QuantityModal({ item, onConfirm, onClose }) {
   const [qty, setQty] = useState(item.defaultQty || 100);
   const base = item.defaultQty || 100;
+  const unit = item.unit || "g";
   const ratio = Number(qty) / base;
   const scaled = {
     kcal:    Math.round((item.kcal    || 0) * ratio),
@@ -447,23 +448,23 @@ function QuantityModal({ item, onConfirm, onClose }) {
       <div onClick={e=>e.stopPropagation()} style={{ width:"100%", maxWidth:480, background:"#fff", borderRadius:"20px 20px 0 0", padding:"20px 20px 36px" }}>
         <div style={{ width:36, height:4, background:"#eee", borderRadius:99, margin:"0 auto 16px" }}/>
         <div style={{ fontSize:15, fontWeight:700, color:"#1a1a2e", marginBottom:4 }}>{item.name}</div>
-        <div style={{ fontSize:11, color:"#888", marginBottom:16 }}>Default: {base}{item.unit||"g"} · Adjust quantity below</div>
+        <div style={{ fontSize:11, color:"#888", marginBottom:16 }}>Default: {base}{unit} · Adjust quantity below</div>
 
         {/* Quantity input */}
         <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:16 }}>
-          <button type="button" onClick={()=>setQty(q=>Math.max(5,Number(q)-10))} style={{ width:44, height:44, borderRadius:12, background:"#f0f0f0", border:"none", cursor:"pointer", fontSize:20, fontWeight:700 }}>−</button>
+          <button type="button" onClick={()=>setQty(q=>Math.max(unit==="x"?1:5, Number(q)-(unit==="x"?1:unit==="ml"?50:10)))} style={{ width:44, height:44, borderRadius:12, background:"#f0f0f0", border:"none", cursor:"pointer", fontSize:20, fontWeight:700 }}>−</button>
           <div style={{ flex:1, display:"flex", alignItems:"center", gap:8 }}>
             <input type="number" value={qty} onChange={e=>setQty(e.target.value)} min="1"
               style={{ flex:1, padding:"12px", borderRadius:12, border:"2px solid #1a1a2e", fontSize:20, fontWeight:800, textAlign:"center", fontFamily:"inherit", outline:"none" }}/>
             <span style={{ fontSize:16, color:"#888", fontWeight:600 }}>{item.unit||"g"}</span>
           </div>
-          <button type="button" onClick={()=>setQty(q=>Number(q)+10)} style={{ width:44, height:44, borderRadius:12, background:"#f0f0f0", border:"none", cursor:"pointer", fontSize:20, fontWeight:700 }}>+</button>
+          <button type="button" onClick={()=>setQty(q=>Number(q)+(unit==="x"?1:unit==="ml"?50:10))} style={{ width:44, height:44, borderRadius:12, background:"#f0f0f0", border:"none", cursor:"pointer", fontSize:20, fontWeight:700 }}>+</button>
         </div>
 
-        {/* Quick presets */}
+        {/* Quick presets — smart based on unit */}
         <div style={{ display:"flex", gap:8, marginBottom:16, flexWrap:"wrap" }}>
-          {[50,75,100,125,150,200].map(v=>(
-            <button key={v} type="button" onClick={()=>setQty(v)} style={{ padding:"6px 14px", borderRadius:99, border:`1.5px solid ${Number(qty)===v?"#1a1a2e":"#eee"}`, background:Number(qty)===v?"#1a1a2e":"#f8f6f2", color:Number(qty)===v?"#fff":"#666", fontSize:12, fontWeight:700, cursor:"pointer" }}>{v}{item.unit||"g"}</button>
+          {(unit==="x" ? [1,2,3,4,5] : unit==="ml" ? [50,100,150,200,250] : [25,50,75,100,125,150,200]).map(v=>(
+            <button key={v} type="button" onClick={()=>setQty(v)} style={{ padding:"6px 14px", borderRadius:99, border:`1.5px solid ${Number(qty)===v?"#1a1a2e":"#eee"}`, background:Number(qty)===v?"#1a1a2e":"#f8f6f2", color:Number(qty)===v?"#fff":"#666", fontSize:12, fontWeight:700, cursor:"pointer" }}>{v}{unit}</button>
           ))}
         </div>
 
@@ -479,7 +480,7 @@ function QuantityModal({ item, onConfirm, onClose }) {
 
         <button type="button" onClick={()=>onConfirm({...item, name:`${item.name} (${qty}${item.unit||"g"})`, ...scaled})}
           style={{ width:"100%", padding:"15px", background:"#e85d26", color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:"pointer" }}>
-          + Add {qty}{item.unit||"g"} to Log
+          + Add {qty}{unit} to Log
         </button>
       </div>
     </div>
@@ -642,7 +643,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
                               ))}
                             </div>
                           </div>
-                          <button type="button" onClick={()=>openQty(item.name,item.kcal,item.protein,item.carbs,item.fat,100)} style={{ width:48, height:48, borderRadius:12, background:"#1a1a2e", color:"#fff", border:"none", cursor:"pointer", fontSize:24, flexShrink:0 }}>+</button>
+                          <button type="button" onClick={()=>openQty(item.name,item.kcal,item.protein,item.carbs,item.fat,item.defaultQty||100,item.unit||"g")} style={{ width:48, height:48, borderRadius:12, background:"#1a1a2e", color:"#fff", border:"none", cursor:"pointer", fontSize:24, flexShrink:0 }}>+</button>
                         </div>
                       ))}
                     </div>
@@ -797,10 +798,34 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
   function addExercise(name) { if(!name.trim()||exercises.find(e=>e.name===name)) return; setExercises(prev=>[...prev,{name,sets:[{reps:"",weight:""}]}]); setCustomEx(""); }
   function addSet(i) { setExercises(prev=>prev.map((e,ei)=>ei===i?{...e,sets:[...e.sets,{reps:"",weight:""}]}:e)); }
   function removeSet(i,si) { setExercises(prev=>prev.map((e,ei)=>ei===i?{...e,sets:e.sets.filter((_,s)=>s!==si)}:e)); }
-  function updateSet(i,si,field,val) { setExercises(prev=>prev.map((e,ei)=>ei===i?{...e,sets:e.sets.map((s,s2)=>s2===si?{...s,[field]:val}:s)}:e)); }
+  function updateSet(i,si,field,val) {
+    setExercises(prev=>prev.map((e,ei)=>ei===i?{...e,sets:e.sets.map((s,s2)=>s2===si?{...s,[field]:val}:s)}:e));
+    setAutoSaved(false);
+    // Debounce autosave indicator
+    clearTimeout(window._autoSaveTimer);
+    window._autoSaveTimer = setTimeout(() => setAutoSaved(true), 800);
+  }
   function removeExercise(i) { setExercises(prev=>prev.filter((_,ei)=>ei!==i)); }
 
-  async function saveSession() {
+  function addBlock() {
+    setShowExtraBlock(true);
+  }
+
+  function saveExtraCardio() {
+    if (!extraCardio.duration) return;
+    setExtraBlocks(prev => [...prev, { type:"cardio", cardioData:extraCardio }]);
+    setExtraCardio({ type:"Incline Walk", duration:"", distance:"", notes:"" });
+    setShowExtraBlock(false);
+  }
+
+  function saveExtraCardio() {
+    if (!extraCardio.duration) return;
+    setExtraBlocks(prev => [...prev, { type:"cardio", cardioData:{...extraCardio} }]);
+    setExtraCardio({ type:"Incline Walk", duration:"", distance:"", notes:"" });
+    setShowExtraBlock(false);
+  }
+
+    async function saveSession() {
     if (mode==="cardio"&&!cardioData.duration) return;
     if ((mode==="weights"||mode==="bodyweight")&&exercises.length===0) return;
     setSaving(true);
@@ -809,7 +834,7 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
     const session = { id, date:globalDate, mode, sessionName:sessionName||(mode==="cardio"?cardioData.type:"Session"), exercises:mode!=="cardio"?exercises:[], cardioData:mode==="cardio"?cardioData:null, totalVolume, savedAt:new Date().toISOString() };
     await onSaveSession(session);
     showToast("✅ Session saved!");
-    setMode(null); setSessionName(""); setExercises([]); setCardioData({type:"Incline Walk",duration:"",distance:"",notes:""});
+    setMode(null); setSessionName(""); setExercises([]); setCardioData({type:"Incline Walk",duration:"",distance:"",notes:""}); setExtraBlocks([]); setShowExtraBlock(false); setExtraBlocks([]); setShowExtraBlock(false);
     setSaving(false); setSubTab("history");
   }
 
@@ -846,20 +871,28 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
         {subTab==="log"&&(
           <div>
             {!mode?(
-              <Card>
-                <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e", marginBottom:16 }}>
-                  {globalDate===getToday()?"Log today's session":"Log session for "+fmtDateLong(globalDate)}
-                </div>
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
-                  {[["🏋️","Weights","weights","Gym — sets, reps, kg"],["💪","Bodyweight","bodyweight","No equipment"],["🏃","Cardio","cardio","Run, cycle, row"]].map(([emoji,label,val,sub])=>(
-                    <button key={val} type="button" onClick={()=>setMode(val)} style={{ padding:"16px 8px", borderRadius:14, border:"2px solid #eee", background:"#f8f6f2", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
-                      <span style={{ fontSize:28 }}>{emoji}</span>
-                      <span style={{ fontSize:12, fontWeight:700, color:"#1a1a2e" }}>{label}</span>
-                      <span style={{ fontSize:10, color:"#aaa", textAlign:"center" }}>{sub}</span>
-                    </button>
-                  ))}
-                </div>
-              </Card>
+              <div>
+                {/* Date display */}
+                <Card style={{ background:"#1a1a2e", border:"none", marginBottom:12 }}>
+                  <div style={{ fontSize:10, color:"#8899bb", fontFamily:"monospace", marginBottom:4 }}>LOGGING SESSION FOR</div>
+                  <div style={{ fontSize:18, fontWeight:800, color:globalDate===getToday()?"#22c55e":"#f59e0b" }}>
+                    {globalDate===getToday()?"Today — "+fmtDate(globalDate):fmtDateLong(globalDate)}
+                  </div>
+                  <div style={{ fontSize:11, color:"#8899bb", marginTop:4 }}>Use the date navigator in Log tab to change date</div>
+                </Card>
+                <Card>
+                  <div style={{ fontSize:13, fontWeight:700, color:"#1a1a2e", marginBottom:16 }}>Choose training type</div>
+                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10 }}>
+                    {[["🏋️","Weights","weights","Gym — sets, reps, kg"],["💪","Bodyweight","bodyweight","No equipment"],["🏃","Cardio","cardio","Run, cycle, row"]].map(([emoji,label,val,sub])=>(
+                      <button key={val} type="button" onClick={()=>setMode(val)} style={{ padding:"16px 8px", borderRadius:14, border:"2px solid #eee", background:"#f8f6f2", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+                        <span style={{ fontSize:28 }}>{emoji}</span>
+                        <span style={{ fontSize:12, fontWeight:700, color:"#1a1a2e" }}>{label}</span>
+                        <span style={{ fontSize:10, color:"#aaa", textAlign:"center" }}>{sub}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              </div>
             ):(
               <div>
                 <Card>
@@ -935,16 +968,23 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
                           {mode==="weights"&&<div style={{ fontSize:10, color:"#60a5fa", fontFamily:"monospace", alignSelf:"end", paddingBottom:6 }}>KG</div>}
                           <div></div>
                         </div>
+                        {/* Column headers */}
+                        <div style={{ display:"grid", gridTemplateColumns:mode==="weights"?"48px 1fr 1fr 48px":"48px 1fr 48px", gap:8, marginBottom:6, paddingLeft:4 }}>
+                          <div/>
+                          <div style={{ fontSize:11, color:"#22c55e", fontFamily:"monospace", fontWeight:700, textAlign:"center" }}>REPS</div>
+                          {mode==="weights"&&<div style={{ fontSize:11, color:"#60a5fa", fontFamily:"monospace", fontWeight:700, textAlign:"center" }}>KG</div>}
+                          <div/>
+                        </div>
                         {ex.sets.map((set,si)=>(
-                          <div key={si} style={{ display:"grid", gridTemplateColumns:mode==="weights"?"40px 1fr 1fr 40px":"40px 1fr 40px", gap:6, marginBottom:6 }}>
-                            <div style={{ textAlign:"center", fontSize:13, color:"#aaa", lineHeight:"40px", fontWeight:700 }}>{si+1}</div>
+                          <div key={si} style={{ display:"grid", gridTemplateColumns:mode==="weights"?"48px 1fr 1fr 48px":"48px 1fr 48px", gap:8, marginBottom:10 }}>
+                            <div style={{ textAlign:"center", fontSize:16, color:"#aaa", lineHeight:"52px", fontWeight:800 }}>{si+1}</div>
                             <input type="number" value={set.reps} onChange={e=>updateSet(ei,si,"reps",e.target.value)} placeholder="0"
-                              style={{ padding:"10px", borderRadius:10, border:"1.5px solid #eee", fontSize:14, textAlign:"center", fontFamily:"inherit", outline:"none", background:"#fafafa" }}/>
+                              style={{ padding:"14px 8px", borderRadius:12, border:"2px solid #e8f5e9", fontSize:20, fontWeight:800, textAlign:"center", fontFamily:"inherit", outline:"none", background:"#f0fdf4", color:"#1a1a2e", height:52, boxSizing:"border-box" }}/>
                             {mode==="weights"&&(
                               <input type="number" step="0.5" value={set.weight} onChange={e=>updateSet(ei,si,"weight",e.target.value)} placeholder="0"
-                                style={{ padding:"10px", borderRadius:10, border:"1.5px solid #eee", fontSize:14, textAlign:"center", fontFamily:"inherit", outline:"none", background:"#fafafa" }}/>
+                                style={{ padding:"14px 8px", borderRadius:12, border:"2px solid #eff6ff", fontSize:20, fontWeight:800, textAlign:"center", fontFamily:"inherit", outline:"none", background:"#eff6ff", color:"#1a1a2e", height:52, boxSizing:"border-box" }}/>
                             )}
-                            <button type="button" onClick={()=>removeSet(ei,si)} style={{ width:36, height:40, borderRadius:10, background:"#fff0f0", color:"#ef4444", border:"none", cursor:"pointer", fontSize:14 }}>✕</button>
+                            <button type="button" onClick={()=>removeSet(ei,si)} style={{ width:48, height:52, borderRadius:12, background:"#fff0f0", color:"#ef4444", border:"none", cursor:"pointer", fontSize:18 }}>✕</button>
                           </div>
                         ))}
                         <button type="button" onClick={()=>addSet(ei)} style={{ width:"100%", padding:"8px", background:"#f8f6f2", border:"none", borderRadius:10, cursor:"pointer", fontSize:12, color:"#666", fontWeight:600, marginTop:4 }}>+ Add Set</button>
@@ -953,7 +993,117 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
                   </div>
                 )}
 
-                <button type="button" onClick={saveSession} disabled={saving} style={{ width:"100%", padding:"16px", background:saving?"#aaa":"#22c55e", color:"#fff", border:"none", borderRadius:14, fontSize:15, fontWeight:700, cursor:saving?"not-allowed":"pointer", marginBottom:20 }}>
+                {/* Extra block entry */}
+                {showExtraBlock && (
+                  <Card style={{ background:"#fff7ed", border:"1.5px solid #fed7aa" }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#e85d26", marginBottom:12 }}>
+                      🏃 Add {mode==="cardio"?"Weights":"Cardio"} Block
+                    </div>
+                    {mode!=="cardio" && (
+                      <div style={{ fontSize:12, color:"#888", marginBottom:10 }}>Weights/bodyweight block already logged above. Add your cardio details:</div>
+                    )}
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+                      {CARDIO_TYPES.map(t=>(
+                        <button key={t} type="button" onClick={()=>setExtraCardio(p=>({...p,type:t}))} style={{ padding:"6px 12px", borderRadius:99, border:`1.5px solid ${extraCardio.type===t?"#1a1a2e":"#eee"}`, background:extraCardio.type===t?"#1a1a2e":"#f8f6f2", color:extraCardio.type===t?"#fff":"#666", fontSize:12, fontWeight:600, cursor:"pointer" }}>{t}</button>
+                      ))}
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+                      <div>
+                        <div style={{ fontSize:10, color:"#888", marginBottom:4, fontFamily:"monospace" }}>DURATION (mins) *</div>
+                        <input type="number" value={extraCardio.duration} onChange={e=>setExtraCardio(p=>({...p,duration:e.target.value}))} placeholder="e.g. 20"
+                          style={{ width:"100%", padding:"10px", borderRadius:10, border:"1.5px solid #eee", fontSize:14, fontFamily:"inherit", outline:"none", background:"#fafafa", boxSizing:"border-box" }}/>
+                      </div>
+                      <div>
+                        <div style={{ fontSize:10, color:"#888", marginBottom:4, fontFamily:"monospace" }}>DISTANCE (km)</div>
+                        <input type="number" step="0.1" value={extraCardio.distance} onChange={e=>setExtraCardio(p=>({...p,distance:e.target.value}))} placeholder="optional"
+                          style={{ width:"100%", padding:"10px", borderRadius:10, border:"1.5px solid #eee", fontSize:14, fontFamily:"inherit", outline:"none", background:"#fafafa", boxSizing:"border-box" }}/>
+                      </div>
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                      <button type="button" onClick={saveExtraCardio} style={{ padding:"10px", background:"#22c55e", color:"#fff", border:"none", borderRadius:10, cursor:"pointer", fontSize:13, fontWeight:700 }}>✅ Add Block</button>
+                      <button type="button" onClick={()=>setShowExtraBlock(false)} style={{ padding:"10px", background:"#f0f0f0", color:"#666", border:"none", borderRadius:10, cursor:"pointer", fontSize:13, fontWeight:700 }}>Cancel</button>
+                    </div>
+                  </Card>
+                )}
+
+                {/* Show added extra blocks */}
+                {extraBlocks.map((block, i) => (
+                  <Card key={i} style={{ background:"#f0fdf4", border:"1px solid #86efac" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:700, color:"#22c55e" }}>✅ Extra: {block.cardioData?.type}</div>
+                        <div style={{ fontSize:11, color:"#555" }}>{block.cardioData?.duration} mins{block.cardioData?.distance?" · "+block.cardioData.distance+"km":""}</div>
+                      </div>
+                      <button type="button" onClick={()=>setExtraBlocks(prev=>prev.filter((_,j)=>j!==i))} style={{ width:28, height:28, borderRadius:"50%", background:"#fff0f0", color:"#ef4444", border:"none", cursor:"pointer", fontSize:13 }}>✕</button>
+                    </div>
+                  </Card>
+                ))}
+
+                {/* Add another block option */}
+                <Card style={{ background:"#f0f4ff", border:"1.5px solid #c7d7ff", marginBottom:10 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:"#3b82f6", marginBottom:8 }}>
+                    Did you also do cardio or another exercise type?
+                  </div>
+                  <div style={{ display:"flex", gap:8 }}>
+                    {(mode==="weights"||mode==="bodyweight") && (
+                      <button type="button" onClick={()=>addBlock()} style={{ flex:1, padding:"10px", background:"#3b82f6", color:"#fff", border:"none", borderRadius:10, cursor:"pointer", fontSize:12, fontWeight:700 }}>
+                        + Add Cardio Block
+                      </button>
+                    )}
+                    {mode==="cardio" && (
+                      <button type="button" onClick={()=>addBlock()} style={{ flex:1, padding:"10px", background:"#3b82f6", color:"#fff", border:"none", borderRadius:10, cursor:"pointer", fontSize:12, fontWeight:700 }}>
+                        + Add Weights Block
+                      </button>
+                    )}
+                  </div>
+                </Card>
+
+                {/* Extra block entry */}
+                {showExtraBlock && (
+                  <Card style={{ background:"#fff7ed", border:"1.5px solid #fed7aa" }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:"#e85d26", marginBottom:12 }}>🏃 Add Cardio Block</div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
+                      {CARDIO_TYPES.map(t=>(
+                        <button key={t} type="button" onClick={()=>setExtraCardio(p=>({...p,type:t}))} style={{ padding:"6px 12px", borderRadius:99, border:`1.5px solid ${extraCardio.type===t?"#1a1a2e":"#eee"}`, background:extraCardio.type===t?"#1a1a2e":"#f8f6f2", color:extraCardio.type===t?"#fff":"#666", fontSize:12, fontWeight:600, cursor:"pointer" }}>{t}</button>
+                      ))}
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:10 }}>
+                      <div>
+                        <div style={{ fontSize:10, color:"#888", marginBottom:4, fontFamily:"monospace" }}>DURATION (mins) *</div>
+                        <input type="number" value={extraCardio.duration} onChange={e=>setExtraCardio(p=>({...p,duration:e.target.value}))} placeholder="e.g. 20" style={{ width:"100%", padding:"10px", borderRadius:10, border:"1.5px solid #eee", fontSize:14, fontFamily:"inherit", outline:"none", background:"#fafafa", boxSizing:"border-box" }}/>
+                      </div>
+                      <div>
+                        <div style={{ fontSize:10, color:"#888", marginBottom:4, fontFamily:"monospace" }}>DISTANCE (km)</div>
+                        <input type="number" step="0.1" value={extraCardio.distance} onChange={e=>setExtraCardio(p=>({...p,distance:e.target.value}))} placeholder="optional" style={{ width:"100%", padding:"10px", borderRadius:10, border:"1.5px solid #eee", fontSize:14, fontFamily:"inherit", outline:"none", background:"#fafafa", boxSizing:"border-box" }}/>
+                      </div>
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                      <button type="button" onClick={saveExtraCardio} style={{ padding:"10px", background:"#22c55e", color:"#fff", border:"none", borderRadius:10, cursor:"pointer", fontSize:13, fontWeight:700 }}>✅ Add Block</button>
+                      <button type="button" onClick={()=>setShowExtraBlock(false)} style={{ padding:"10px", background:"#f0f0f0", color:"#666", border:"none", borderRadius:10, cursor:"pointer", fontSize:13, fontWeight:700 }}>Cancel</button>
+                    </div>
+                  </Card>
+                )}
+                {extraBlocks.map((block,i)=>(
+                  <Card key={i} style={{ background:"#f0fdf4", border:"1px solid #86efac" }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <div>
+                        <div style={{ fontSize:12, fontWeight:700, color:"#22c55e" }}>✅ {block.cardioData?.type}</div>
+                        <div style={{ fontSize:11, color:"#555" }}>{block.cardioData?.duration} mins{block.cardioData?.distance?" · "+block.cardioData.distance+"km":""}</div>
+                      </div>
+                      <button type="button" onClick={()=>setExtraBlocks(prev=>prev.filter((_,j)=>j!==i))} style={{ width:28, height:28, borderRadius:"50%", background:"#fff0f0", color:"#ef4444", border:"none", cursor:"pointer", fontSize:13 }}>✕</button>
+                    </div>
+                  </Card>
+                ))}
+                {!showExtraBlock && (mode==="weights"||mode==="bodyweight") && (
+                  <button type="button" onClick={()=>setShowExtraBlock(true)} style={{ width:"100%", padding:"11px", background:"#f0f4ff", border:"1.5px solid #c7d7ff", borderRadius:12, fontSize:12, fontWeight:700, color:"#3b82f6", cursor:"pointer", marginBottom:10 }}>+ Add Cardio Block (e.g. incline walk warm-up)</button>
+                )}
+                {/* Autosave indicator */}
+                {exercises.length > 0 && (
+                  <div style={{ textAlign:"center", fontSize:11, color:autoSaved?"#22c55e":"#aaa", fontFamily:"monospace", marginBottom:10, transition:"color 0.3s" }}>
+                    {autoSaved ? "✓ Progress recorded" : "Recording..."}
+                  </div>
+                )}
+                <button type="button" onClick={saveSession} disabled={saving} style={{ width:"100%", padding:"18px", background:saving?"#aaa":"#22c55e", color:"#fff", border:"none", borderRadius:14, fontSize:16, fontWeight:700, cursor:saving?"not-allowed":"pointer", marginBottom:20, letterSpacing:0.5 }}>
                   {saving?"Saving…":"✅ Save Session"}
                 </button>
               </div>
@@ -974,7 +1124,7 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
                   <div onClick={()=>setExpandedSession(expandedSession===session.id?null:session.id)} style={{ cursor:"pointer" }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
                       <div>
-                        <div style={{ fontSize:11, color:"#aaa", fontFamily:"monospace", marginBottom:2 }}>{fmtDate(session.date)}</div>
+                        <div style={{ fontSize:11, color:"#e85d26", fontFamily:"monospace", fontWeight:700, marginBottom:2 }}>{fmtDateLong(session.date)}</div>
                         <div style={{ fontSize:15, fontWeight:700 }}>{session.mode==="weights"?"🏋️":session.mode==="bodyweight"?"💪":"🏃"} {session.sessionName}</div>
                         <div style={{ fontSize:11, color:"#888", marginTop:3 }}>
                           {session.mode==="cardio"?`${session.cardioData?.duration} mins${session.cardioData?.distance?" · "+session.cardioData.distance+"km":""}`:
@@ -986,6 +1136,14 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
                   </div>
                   {expandedSession===session.id&&(
                     <div style={{ marginTop:12, borderTop:"1px solid #f5f5f5", paddingTop:12 }}>
+                      {session.extraBlocks?.length>0&&(
+                        <div style={{ background:"#f0fdf4", borderRadius:10, padding:"8px 12px", marginBottom:10 }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:"#22c55e", marginBottom:4 }}>+ Additional blocks:</div>
+                          {session.extraBlocks.map((b,i)=>(
+                            <div key={i} style={{ fontSize:11, color:"#555" }}>{b.cardioData?.type}: {b.cardioData?.duration} mins{b.cardioData?.distance?" · "+b.cardioData.distance+"km":""}</div>
+                          ))}
+                        </div>
+                      )}
                       {session.mode==="cardio"?(
                         <div style={{ background:"#f8f6f2", borderRadius:10, padding:12 }}>
                           <div style={{ fontSize:12, color:"#555" }}>Type: {session.cardioData?.type}</div>
