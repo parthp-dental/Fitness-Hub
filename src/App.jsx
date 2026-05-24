@@ -449,39 +449,35 @@ function NutritionScanModal({ onConfirm, onClose }) {
   }, []);
 
   function extractMacros(text) {
-    const t = text.toLowerCase().replace(/[,،]/g, (m, i, s) => {
-      // Only replace comma with dot if surrounded by digits
-      const before = s[i-1], after = s[i+1];
-      return (before && after && /\d/.test(before) && /\d/.test(after)) ? '.' : m;
-    });
-
+    let t = text.toLowerCase();
+    // Fix comma decimals
+    t = t.replace(/(\d+)[,](?=\d)/g, '$1.');
     const result = {};
 
-    // Calories — find number before/after kcal
-    const kcalMatch = t.match(/(\d+)\s*kcal/);
-    if (kcalMatch) result.kcal = parseFloat(kcalMatch[1]);
+    // Calories — number before/after kcal keyword
+    const kcalM = t.match(/(\d+)\s*kcal/);
+    if (kcalM) result.kcal = parseFloat(kcalM[1]);
     else {
-      const calMatch = t.match(/calorie[s]?\D{0,5}(\d+)/);
-      if (calMatch) result.kcal = parseFloat(calMatch[1]);
+      const calM = t.match(/calorie[s]?\D{0,5}(\d+)/);
+      if (calM) result.kcal = parseFloat(calM[1]);
     }
 
     // Protein
-    const protMatch = t.match(/protein[^\d]*(\d+\.?\d*)/);
-    if (protMatch) result.protein = parseFloat(protMatch[1]);
+    const protM = t.match(/protein[^\d]*(\d+\.?\d*)/);
+    if (protM) result.protein = parseFloat(protM[1]);
 
-    // Carbs — first line with carbohydrate/carbs, skip "of which"
-    for (const line of t.split('
-')) {
+    // Carbs — find carbohydrate line, skip "of which"
+    const allLines = t.split("\n");
+    for (const line of allLines) {
       if (/carbohydrat|total carb/.test(line) && !/of which|which/.test(line)) {
         const m = line.match(/(\d+\.?\d*)/);
         if (m) { result.carbs = parseFloat(m[1]); break; }
       }
     }
 
-    // Fat — first line with "fat" but not saturates/trans
-    for (const line of t.split('
-')) {
-      if (/fat/.test(line) && !/saturate|trans/.test(line)) {
+    // Fat — find fat line, skip saturates/trans
+    for (const line of allLines) {
+      if (/\bfat\b/.test(line) && !/saturate|trans/.test(line)) {
         const nums = [...line.matchAll(/(\d+\.?\d*)/g)].map(m => parseFloat(m[1]));
         const val = nums.find(n => n > 0 && n < 100);
         if (val !== undefined) { result.fat = val; break; }
@@ -491,7 +487,7 @@ function NutritionScanModal({ onConfirm, onClose }) {
     return result;
   }
 
-  async function handleUpload(e) {
+    async function handleUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
     e.target.value = "";
