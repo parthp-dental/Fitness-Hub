@@ -448,18 +448,26 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
         </div>
         {(() => {
           const trainedToday = sessions.some(s=>s.date===getToday());
-          const calorieHit = totals.kcal >= 1700 && totals.kcal <= 2050;
-          const proteinHit = totals.protein >= TARGETS.protein;
-          const waterHit = waterLog >= 10;
-          const suppHit = suppLog.length === SUPPLEMENTS.length;
+
+          // Live adherence scoring — gives partial credit as the day progresses.
+          // This avoids showing 0% just because targets are not fully completed yet.
+          const proteinPct = Math.min(totals.protein / TARGETS.protein, 1);
+          const caloriePct = totals.kcal <= TARGETS.kcal
+            ? Math.min(totals.kcal / TARGETS.kcal, 1)
+            : Math.max(0, 1 - ((totals.kcal - TARGETS.kcal) / 500));
+          const trainingPct = trainedToday ? 1 : 0;
+          const waterPct = Math.min(waterLog / 10, 1);
+          const suppPct = SUPPLEMENTS.length ? Math.min(suppLog.length / SUPPLEMENTS.length, 1) : 0;
+
+          const score = Math.round(((proteinPct + caloriePct + trainingPct + waterPct + suppPct) / 5) * 100);
+
           const items = [
-            ["Protein", proteinHit, Math.round(totals.protein)+"g"],
-            ["Calories", calorieHit, Math.round(totals.kcal)+" kcal"],
-            ["Training", trainedToday, trainedToday?"done":"pending"],
-            ["Water", waterHit, (waterLog*250)+"ml"],
-            ["Supps", suppHit, suppLog.length+"/"+SUPPLEMENTS.length]
+            ["Protein", proteinPct >= 1, Math.round(totals.protein)+"g", Math.round(proteinPct*100)+"%"],
+            ["Calories", caloriePct >= 0.9, Math.round(totals.kcal)+" kcal", Math.round(caloriePct*100)+"%"],
+            ["Training", trainedToday, trainedToday?"done":"pending", trainedToday?"100%":"0%"],
+            ["Water", waterPct >= 1, (waterLog*250)+"ml", Math.round(waterPct*100)+"%"],
+            ["Supps", suppPct >= 1, suppLog.length+"/"+SUPPLEMENTS.length, Math.round(suppPct*100)+"%"]
           ];
-          const score = Math.round(items.filter(i=>i[1]).length / items.length * 100);
           return (
             <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -467,11 +475,12 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
                 <div style={{fontSize:28,fontWeight:900,color:score>=80?T.success:score>=60?T.warning:T.danger}}>{score}%</div>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
-                {items.map(([label,hit,val])=>(
+                {items.map(([label,hit,val,pct])=>(
                   <div key={label} style={{background:hit?T.accentDim:T.surfaceAlt,border:`1px solid ${hit?T.accentMid:T.border}`,borderRadius:12,padding:"9px 4px",textAlign:"center"}}>
                     <div style={{fontSize:16,marginBottom:3}}>{hit?"✅":"○"}</div>
                     <div style={{fontSize:9,color:hit?T.accent:T.textMuted,fontFamily:"monospace",fontWeight:700}}>{label.toUpperCase()}</div>
                     <div style={{fontSize:9,color:T.textSub,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{val}</div>
+                    <div style={{fontSize:8,color:hit?T.accent:T.textMuted,marginTop:2}}>{pct}</div>
                   </div>
                 ))}
               </div>
@@ -562,6 +571,17 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
   function addMealItem(mealId){if(!newItem.name.trim()||!newItem.kcal)return;const item={name:newItem.name,kcal:Number(newItem.kcal)||0,protein:Number(newItem.protein)||0,carbs:Number(newItem.carbs)||0,fat:Number(newItem.fat)||0};onSaveMeals(meals.map(m=>m.id===mealId?{...m,items:[...m.items,item]}:m));setNewItem({name:"",kcal:"",protein:"",carbs:"",fat:""});showToast("✅ Item added!");}
   function resetMeal(mealId){const def=DEFAULT_MEALS.find(m=>m.id===mealId);if(!def)return;onSaveMeals(meals.map(m=>m.id===mealId?{...m,items:[...def.items]}:m));showToast("✅ Reset to default");}
   const tabs=[["quick","⚡ MEALS"],["myfoods","⭐ MY FOODS ("+myFoods.length+")"],["search","🔍 SEARCH"],["manual","✏️ MANUAL"],["log","📋 LOG ("+foodLog.length+")"]];
+  const cleanLoggedName = name => String(name||"").replace(/\s*\([^)]*\)\s*$/," ").trim().toLowerCase();
+  const isFoodLogged = name => {
+    const target = cleanLoggedName(name);
+    if(!target) return false;
+    return foodLog.some(item => {
+      const logged = cleanLoggedName(item.name);
+      return logged === target || logged.startsWith(target) || target.startsWith(logged);
+    });
+  };
+  const isMealLogged = meal => foodLog.some(item => cleanLoggedName(item.name) === cleanLoggedName(meal.label));
+  const addedCardStyle = { background:T.accentDim, border:`1px solid ${T.accent}`, boxShadow:`0 0 0 1px ${T.accentMid}, 0 0 18px ${T.accentDim}` };
   return (
     <div style={{background:T.bg,minHeight:"100vh"}}>
       <Toast msg={toast}/>
@@ -583,20 +603,21 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
       <div style={{padding:"14px 14px 0"}}>
         {/* MEALS */}
         {subTab==="quick"&&meals.map(meal=>{
-          const tot=mealTotal(meal), isEditing=editingMeal===meal.id;
+          const tot=mealTotal(meal), isEditing=editingMeal===meal.id, mealLogged=isMealLogged(meal);
           return (
-            <div key={meal.id} style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
+            <div key={meal.id} style={{background:mealLogged?T.accentDim:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${mealLogged?T.accent:T.border}`,boxShadow:mealLogged?`0 0 0 1px ${T.accentMid}, 0 0 18px ${T.accentDim}`:"none",transition:"all 0.2s ease"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                 <div>
                   <div style={{fontSize:11,color:T.textMuted,marginBottom:3}}>{meal.time}</div>
                   <div style={{fontSize:17,fontWeight:700,color:T.text}}>{meal.emoji} {meal.label}</div>
                   <div style={{fontSize:12,color:T.textSub,marginTop:2}}>{Math.round(tot.kcal)} kcal · {Math.round(tot.protein)}g protein</div>
+                  {mealLogged&&<div style={{display:"inline-flex",alignItems:"center",gap:5,marginTop:8,padding:"4px 10px",borderRadius:99,background:T.accent,color:"#000",fontSize:10,fontWeight:900,fontFamily:"monospace",letterSpacing:1}}>✓ ADDED</div>}
                 </div>
                 <div style={{display:"flex",gap:8}}>
                   <button type="button" onClick={()=>setEditingMeal(isEditing?null:meal.id)} style={{padding:"8px 14px",background:isEditing?T.accent:T.surfaceAlt,color:isEditing?"#000":T.textSub,border:`1px solid ${T.border}`,borderRadius:10,cursor:"pointer",fontSize:12,fontWeight:700}}>
                     {isEditing?"Done":"✏️"}
                   </button>
-                  <button type="button" onClick={()=>logItem(meal.label,tot.kcal,tot.protein,tot.carbs,tot.fat)} style={{padding:"8px 16px",background:T.accent,color:"#000",border:"none",borderRadius:10,cursor:"pointer",fontSize:13,fontWeight:700,minHeight:40}}>+All</button>
+                  <button type="button" onClick={()=>logItem(meal.label,tot.kcal,tot.protein,tot.carbs,tot.fat)} style={{padding:"8px 16px",background:mealLogged?T.success:T.accent,color:"#000",border:"none",borderRadius:10,cursor:"pointer",fontSize:13,fontWeight:700,minHeight:40}}>{mealLogged?"✓ Added":"+All"}</button>
                 </div>
               </div>
               {isEditing&&(
@@ -654,7 +675,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
               {!isEditing&&expandedMeal===meal.id&&(
                 <div style={{marginTop:10}}>
                   {meal.items.map((item,idx)=>(
-                    <div key={idx} style={{display:"flex",alignItems:"center",gap:10,background:T.surfaceAlt,borderRadius:12,padding:"12px",marginBottom:8,border:`1px solid ${T.border}`}}>
+                    <div key={idx} style={{display:"flex",alignItems:"center",gap:10,background:isFoodLogged(item.name)?T.accentDim:T.surfaceAlt,borderRadius:12,padding:"12px",marginBottom:8,border:`1px solid ${isFoodLogged(item.name)?T.accent:T.border}`,boxShadow:isFoodLogged(item.name)?`0 0 12px ${T.accentDim}`:"none",transition:"all 0.2s ease"}}>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:6}}>{item.name}</div>
                         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
@@ -666,7 +687,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
                           ))}
                         </div>
                       </div>
-                      <button type="button" onClick={()=>openQty(item.name,item.kcal,item.protein,item.carbs,item.fat,item.defaultQty||100,item.unit||"g")} style={{width:48,height:48,borderRadius:12,background:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:24,flexShrink:0}}>+</button>
+                      <button type="button" onClick={()=>openQty(item.name,item.kcal,item.protein,item.carbs,item.fat,item.defaultQty||100,item.unit||"g")} style={{width:48,height:48,borderRadius:12,background:isFoodLogged(item.name)?T.success:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:isFoodLogged(item.name)?16:24,fontWeight:900,flexShrink:0}}>{isFoodLogged(item.name)?"✓":"+"}</button>
                     </div>
                   ))}
                 </div>
@@ -690,7 +711,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
               </div>
             ):(
               myFoods.map((food,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:T.surface,borderRadius:16,padding:"14px 16px",marginBottom:8,border:`1px solid ${T.border}`}}>
+                <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:isFoodLogged(food.name)?T.accentDim:T.surface,borderRadius:16,padding:"14px 16px",marginBottom:8,border:`1px solid ${isFoodLogged(food.name)?T.accent:T.border}`,boxShadow:isFoodLogged(food.name)?`0 0 12px ${T.accentDim}`:"none",transition:"all 0.2s ease"}}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>{food.name}</div>
                     <div style={{display:"flex",gap:10,fontSize:11}}>
@@ -701,7 +722,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
                     </div>
                   </div>
                   <button type="button" onClick={()=>onDeleteMyFood(food.name)} style={{width:32,height:32,borderRadius:"50%",background:"#ff4d4d15",color:T.danger,border:`1px solid #ff4d4d30`,cursor:"pointer",fontSize:14}}>✕</button>
-                  <button type="button" onClick={()=>openQty(food.name,food.kcal,food.protein,food.carbs,food.fat)} style={{width:48,height:48,borderRadius:12,background:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:22}}>+</button>
+                  <button type="button" onClick={()=>openQty(food.name,food.kcal,food.protein,food.carbs,food.fat)} style={{width:48,height:48,borderRadius:12,background:isFoodLogged(food.name)?T.success:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:isFoodLogged(food.name)?16:22,fontWeight:900}}>{isFoodLogged(food.name)?"✓":"+"}</button>
                 </div>
               ))
             )}
@@ -714,12 +735,12 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
             <input value={searchQ} onChange={e=>handleSearch(e.target.value)} placeholder="e.g. banana, dal, paneer..."
               style={{width:"100%",padding:"13px 16px",borderRadius:14,border:`1px solid ${T.border}`,fontSize:15,fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text,marginBottom:12,boxSizing:"border-box"}}/>
             {searchRes.map((food,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:T.surfaceAlt,borderRadius:14,padding:"12px 14px",marginBottom:8,border:`1px solid ${T.border}`}}>
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:isFoodLogged(food.name)?T.accentDim:T.surfaceAlt,borderRadius:14,padding:"12px 14px",marginBottom:8,border:`1px solid ${isFoodLogged(food.name)?T.accent:T.border}`,boxShadow:isFoodLogged(food.name)?`0 0 12px ${T.accentDim}`:"none",transition:"all 0.2s ease"}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>{food.name}</div>
                   <div style={{display:"flex",gap:10,fontSize:11}}><span style={{color:T.accent,fontWeight:700}}>{food.kcal} kcal</span><span style={{color:"#22c55e"}}>{food.protein}g P</span></div>
                 </div>
-                <button type="button" onClick={()=>openQty(food.name,food.kcal,food.protein,food.carbs,food.fat)} style={{width:48,height:48,borderRadius:12,background:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:22}}>+</button>
+                <button type="button" onClick={()=>openQty(food.name,food.kcal,food.protein,food.carbs,food.fat)} style={{width:48,height:48,borderRadius:12,background:isFoodLogged(food.name)?T.success:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:isFoodLogged(food.name)?16:22,fontWeight:900}}>{isFoodLogged(food.name)?"✓":"+"}</button>
               </div>
             ))}
             {searchQ&&searchRes.length===0&&<div style={{textAlign:"center",padding:"24px",color:T.textSub,fontSize:13}}>No results. Try Manual.</div>}
