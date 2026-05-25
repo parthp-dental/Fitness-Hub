@@ -125,6 +125,9 @@ const fmtDate = d => { try { return new Date(d+"T00:00:00").toLocaleDateString("
 const fmtDateLong = d => { try { return new Date(d+"T00:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"}); } catch { return d; } };
 const dayLabel = d => { try { return new Date(d+"T00:00:00").toLocaleDateString("en-GB",{weekday:"short"}); } catch { return d; } };
 const mealTotal = meal => meal.items.reduce((a,i)=>({kcal:a.kcal+i.kcal,protein:a.protein+i.protein,carbs:a.carbs+i.carbs,fat:a.fat+i.fat}),{kcal:0,protein:0,carbs:0,fat:0});
+const avg = arr => arr.length ? arr.reduce((s,n)=>s+(Number(n)||0),0)/arr.length : null;
+const lastNDays = n => Array.from({length:n},(_,i)=>{const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return d.toISOString().split("T")[0];});
+const inLastDays = (date,n) => { const d=new Date(date+"T00:00:00"); const start=new Date(); start.setDate(start.getDate()-(n-1)); start.setHours(0,0,0,0); return d>=start; };
 
 const compress = file => new Promise((resolve,reject) => {
   const reader = new FileReader();
@@ -335,7 +338,7 @@ function QuantityModal({ item, onConfirm, onClose, T }) {
             </button>
           ))}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:20}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:20}}>
           {[["Kcal",scaled.kcal,T.accent],["Protein",scaled.protein+"g","#22c55e"],["Carbs",scaled.carbs+"g","#4facfe"],["Fat",scaled.fat+"g","#f59e0b"]].map(([l,v,c])=>(
             <div key={l} style={{textAlign:"center",background:T.surfaceAlt,borderRadius:12,padding:"10px 4px",border:`1px solid ${T.border}`}}>
               <div style={{fontSize:16,fontWeight:800,color:c}}>{v}</div>
@@ -443,6 +446,38 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
             </div>
           ))}
         </div>
+        {(() => {
+          const trainedToday = sessions.some(s=>s.date===getToday());
+          const calorieHit = totals.kcal >= 1700 && totals.kcal <= 2050;
+          const proteinHit = totals.protein >= TARGETS.protein;
+          const waterHit = waterLog >= 10;
+          const suppHit = suppLog.length === SUPPLEMENTS.length;
+          const items = [
+            ["Protein", proteinHit, Math.round(totals.protein)+"g"],
+            ["Calories", calorieHit, Math.round(totals.kcal)+" kcal"],
+            ["Training", trainedToday, trainedToday?"done":"pending"],
+            ["Water", waterHit, (waterLog*250)+"ml"],
+            ["Supps", suppHit, suppLog.length+"/"+SUPPLEMENTS.length]
+          ];
+          const score = Math.round(items.filter(i=>i[1]).length / items.length * 100);
+          return (
+            <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                <div><Lbl color={T.accent} style={{marginBottom:6}}>ADHERENCE SCORE</Lbl><div style={{fontSize:13,color:T.textSub}}>Shredded physique habits today</div></div>
+                <div style={{fontSize:28,fontWeight:900,color:score>=80?T.success:score>=60?T.warning:T.danger}}>{score}%</div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6}}>
+                {items.map(([label,hit,val])=>(
+                  <div key={label} style={{background:hit?T.accentDim:T.surfaceAlt,border:`1px solid ${hit?T.accentMid:T.border}`,borderRadius:12,padding:"9px 4px",textAlign:"center"}}>
+                    <div style={{fontSize:16,marginBottom:3}}>{hit?"✅":"○"}</div>
+                    <div style={{fontSize:9,color:hit?T.accent:T.textMuted,fontFamily:"monospace",fontWeight:700}}>{label.toUpperCase()}</div>
+                    <div style={{fontSize:9,color:T.textSub,marginTop:3,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
         <WeeklyAnalysisCard sessions={sessions} weeklyData={weeklyData} T={T}/>
         {/* 7-day calories */}
         {weeklyData.length>0&&(
@@ -1053,12 +1088,13 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
 }
 
 // ── Body Tab ──────────────────────────────────────────────────────────────────
-function BodyTab({ weightLog, onAdd, photos, onAddPhoto, onDeletePhoto, bodyScanLog, onSaveScan, T }) {
-  const [bodyTab,setBodyTab]=useState("scan"), [weightInput,setWeightInput]=useState(""), [saved,setSaved]=useState(false), [uploading,setUploading]=useState(false), [viewPhoto,setViewPhoto]=useState(null), [photoNote,setPhotoNote]=useState("");
+function BodyTab({ weightLog, onAdd, photos, onAddPhoto, onDeletePhoto, bodyScanLog, onSaveScan, checkins, onSaveCheckin, T }) {
+  const [bodyTab,setBodyTab]=useState("scan"), [weightInput,setWeightInput]=useState(""), [saved,setSaved]=useState(false), [uploading,setUploading]=useState(false), [viewPhoto,setViewPhoto]=useState(null), [photoNote,setPhotoNote]=useState(""), [checkin,setCheckin]=useState({energy:"3",sleep:"",stress:"3",soreness:"3",steps:"",notes:""}), [checkinSaved,setCheckinSaved]=useState(false);
   const today=getToday(), todayEntry=weightLog.find(w=>w.date===today), latest=weightLog.length?weightLog[weightLog.length-1].weight:null, change=latest?(latest-67).toFixed(1):null, bmi=latest?(latest/(1.68*1.68)).toFixed(1):null;
   const chartData=weightLog.slice(-30).map(w=>({date:fmtDate(w.date),weight:parseFloat(w.weight)}));
   const baseline={weight:66.2,bodyFat:22.7,muscleRate:46.3,bmi:23.5,bmr:1394,visceralFat:8};
   async function handleSave(){const w=parseFloat(weightInput);if(isNaN(w)||w<30||w>300)return;await onAdd({date:today,weight:w});setSaved(true);setWeightInput("");setTimeout(()=>setSaved(false),2000);}
+  async function handleSaveCheckin(){await onSaveCheckin({date:today,...checkin,savedAt:new Date().toISOString()});setCheckinSaved(true);setTimeout(()=>setCheckinSaved(false),2500);}
   async function handlePhoto(e){const file=e.target.files[0];if(!file)return;setUploading(true);try{const dataUrl=await compress(file);await onAddPhoto({id:String(Date.now()),date:today,dataUrl,note:photoNote.trim()});setPhotoNote("");}catch(err){alert("Photo failed: "+(err.message||"Unknown"));}e.target.value="";setUploading(false);}
   // Tesseract scan
   const [scanning,setScanning]=useState(false), [scanResult,setScanResult]=useState(null), [scanError,setScanError]=useState(""), [scanProgress,setScanProgress]=useState(""), [scanSaved,setScanSaved]=useState(false), [tReady,setTReady]=useState(!!window.Tesseract);
@@ -1075,8 +1111,8 @@ function BodyTab({ weightLog, onAdd, photos, onAddPhoto, onDeletePhoto, bodyScan
     <div style={{background:T.bg,minHeight:"100vh"}}>
       <div style={{padding:"52px 20px 20px",background:T.bg,borderBottom:`1px solid ${T.border}`}}>
         <Lbl color={T.accent} style={{marginBottom:8}}>BODY STATS</Lbl>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-          {[["Current",latest?latest+"kg":"—",T.accent],["Change",change?`${parseFloat(change)<=0?"↓":"↑"}${Math.abs(change)}kg`:"—",change&&parseFloat(change)<=0?T.success:T.textSub],["BMI",bmi||"—","#4facfe"]].map(([l,v,c])=>(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>
+          {[["Weight",latest?latest+"kg":"—",T.accent],["Change",change?`${parseFloat(change)<=0?"↓":"↑"}${Math.abs(change)}kg`:"—",change&&parseFloat(change)<=0?T.success:T.textSub],["BMI",bmi||"—","#4facfe"]].map(([l,v,c])=>(
             <div key={l} style={{textAlign:"center",background:T.surface,borderRadius:14,padding:"14px 8px",border:`1px solid ${T.border}`}}>
               <div style={{fontSize:18,fontWeight:800,color:c,lineHeight:1}}>{v}</div>
               <div style={{fontSize:9,color:T.textMuted,marginTop:4,fontFamily:"monospace"}}>{l.toUpperCase()}</div>
@@ -1084,7 +1120,7 @@ function BodyTab({ weightLog, onAdd, photos, onAddPhoto, onDeletePhoto, bodyScan
           ))}
         </div>
       </div>
-      <SubTabs tabs={[["scan","📷 SCAN"],["weight","⚖️ WEIGHT"],["photos","📸 PHOTOS ("+photos.length+")"]]} active={bodyTab} onChange={setBodyTab} T={T}/>
+      <SubTabs tabs={[["scan","📷 SCAN"],["weight","⚖️ WEIGHT"],["checkin","✅ CHECK-IN"],["photos","📸 PHOTOS ("+photos.length+")"]]} active={bodyTab} onChange={setBodyTab} T={T}/>
       <div style={{padding:"14px 14px 0"}}>
         {bodyTab==="scan"&&(
           <div>
@@ -1183,6 +1219,43 @@ function BodyTab({ weightLog, onAdd, photos, onAddPhoto, onDeletePhoto, bodyScan
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {bodyTab==="checkin"&&(
+          <div>
+            <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
+              <Lbl color={T.accent} style={{marginBottom:8}}>DAILY RECOVERY CHECK-IN</Lbl>
+              <div style={{fontSize:12,color:T.textSub,marginBottom:14,lineHeight:1.5}}>Use this to protect training performance while cutting. Poor recovery + falling strength = diet too aggressive.</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                {[["Sleep hours","sleep","number"],["Steps","steps","number"]].map(([l,k,type])=>(
+                  <div key={k}>
+                    <div style={{fontSize:10,color:T.textMuted,fontFamily:"monospace",marginBottom:5,letterSpacing:1}}>{l.toUpperCase()}</div>
+                    <input type={type} value={checkin[k]} onChange={e=>setCheckin(p=>({...p,[k]:e.target.value}))} placeholder={k==="sleep"?"7.5":"8000"}
+                      style={{width:"100%",padding:"12px",borderRadius:12,border:`1px solid ${T.border}`,fontSize:18,fontWeight:700,textAlign:"center",fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text,boxSizing:"border-box"}}/>
+                  </div>
+                ))}
+              </div>
+              {[["Energy","energy"],["Stress","stress"],["Soreness","soreness"]].map(([l,k])=>(
+                <div key={k} style={{marginBottom:14}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}><span style={{fontSize:12,color:T.textSub}}>{l}</span><span style={{fontSize:12,fontWeight:700,color:T.accent}}>{checkin[k]}/5</span></div>
+                  <input type="range" min="1" max="5" value={checkin[k]} onChange={e=>setCheckin(p=>({...p,[k]:e.target.value}))} style={{width:"100%",accentColor:T.accent}}/>
+                </div>
+              ))}
+              <textarea value={checkin.notes} onChange={e=>setCheckin(p=>({...p,notes:e.target.value}))} placeholder="Notes: hunger, cravings, digestion, training readiness..." rows={3}
+                style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text,marginBottom:12,boxSizing:"border-box",resize:"vertical"}}/>
+              <button type="button" onClick={handleSaveCheckin} style={{width:"100%",padding:"15px",background:T.accent,color:"#000",border:"none",borderRadius:14,fontSize:15,fontWeight:700,cursor:"pointer"}}>{checkinSaved?"✅ Saved":"Save Check-In"}</button>
+            </div>
+            {checkins.length>0&&(
+              <div style={{background:T.surface,borderRadius:20,padding:"18px",border:`1px solid ${T.border}`}}>
+                <Lbl color={T.accent} style={{marginBottom:14}}>RECENT CHECK-INS</Lbl>
+                {[...checkins].reverse().slice(0,7).map(c=>(
+                  <div key={c.date} style={{padding:"10px 0",borderBottom:`1px solid ${T.border}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13,fontWeight:700,color:T.text}}>{fmtDate(c.date)}</span><span style={{fontSize:11,color:T.textSub}}>Sleep {c.sleep||"—"}h · Energy {c.energy}/5 · Stress {c.stress}/5</span></div>
+                    {c.notes&&<div style={{fontSize:11,color:T.textSub,marginTop:5,lineHeight:1.4}}>{c.notes}</div>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
         {bodyTab==="photos"&&(
@@ -1328,7 +1401,7 @@ function SettingsTab({ settings, onSave, T, accent }) {
 
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
-  const [tab,setTab]=useState("home"), [globalDate,setGlobalDate]=useState(getToday()), [foodLog,setFoodLog]=useState([]), [suppLog,setSuppLog]=useState([]), [weightLog,setWeightLog]=useState([]), [photos,setPhotos]=useState([]), [weeklyData,setWeeklyData]=useState([]), [myFoods,setMyFoods]=useState([]), [meals,setMeals]=useState(DEFAULT_MEALS), [sessions,setSessions]=useState([]), [bodyScanLog,setBodyScanLog]=useState([]), [waterLog,setWaterLog]=useState(0), [settings,setSettings]=useState({accent:"orange"}), [ready,setReady]=useState(false);
+  const [tab,setTab]=useState("home"), [globalDate,setGlobalDate]=useState(getToday()), [foodLog,setFoodLog]=useState([]), [suppLog,setSuppLog]=useState([]), [weightLog,setWeightLog]=useState([]), [checkins,setCheckins]=useState([]), [photos,setPhotos]=useState([]), [weeklyData,setWeeklyData]=useState([]), [myFoods,setMyFoods]=useState([]), [meals,setMeals]=useState(DEFAULT_MEALS), [sessions,setSessions]=useState([]), [bodyScanLog,setBodyScanLog]=useState([]), [waterLog,setWaterLog]=useState(0), [settings,setSettings]=useState({accent:"orange"}), [ready,setReady]=useState(false);
 
   const accent=getAccent(settings.accent);
   const T=tokens(accent);
@@ -1336,9 +1409,9 @@ export default function App() {
   useEffect(()=>{
     (async()=>{
       const today=getToday();
-      const [fd,sl,wd,mf,ml,bsl,wtr,stg]= await Promise.all([fbGet("food",today),fbGet("supplements",today),fbGet("stats","weight"),fbGet("data","myfoods"),fbGet("data","meals"),fbGet("data","bodyscans"),fbGet("water",today),fbGet("data","settings")]);
+      const [fd,sl,wd,ciDoc,mf,ml,bsl,wtr,stg]= await Promise.all([fbGet("food",today),fbGet("supplements",today),fbGet("stats","weight"),fbGet("data","checkins"),fbGet("data","myfoods"),fbGet("data","meals"),fbGet("data","bodyscans"),fbGet("water",today),fbGet("data","settings")]);
       const wl=wd?.entries||[];
-      setFoodLog(fd?.items||[]); setSuppLog(sl?.taken||[]); setWeightLog(wl); setMyFoods(mf?.items||[]); setMeals(ml?.meals||DEFAULT_MEALS); setBodyScanLog(bsl?.scans||[]); setWaterLog(wtr?.glasses||0);
+      setFoodLog(fd?.items||[]); setSuppLog(sl?.taken||[]); setWeightLog(wl); setCheckins(ciDoc?.entries||[]); setMyFoods(mf?.items||[]); setMeals(ml?.meals||DEFAULT_MEALS); setBodyScanLog(bsl?.scans||[]); setWaterLog(wtr?.glasses||0);
       if(stg?.accent) setSettings(stg);
       const [allPhotos,allSessions]=await Promise.all([fbGetAll("photos"),fbGetAll("sessions")]);
       allPhotos.sort((a,b)=>a.date.localeCompare(b.date)); setPhotos(allPhotos);
@@ -1359,6 +1432,7 @@ export default function App() {
   async function removeFood(id){const updated=foodLog.filter(f=>f.id!==id);setFoodLog(updated);await fbSet("food",globalDate,{items:updated,date:globalDate});}
   async function toggleSupp(id){const updated=suppLog.includes(id)?suppLog.filter(s=>s!==id):[...suppLog,id];setSuppLog(updated);await fbSet("supplements",globalDate,{taken:updated,date:globalDate});}
   async function addWeight(entry){const updated=[...weightLog.filter(w=>w.date!==entry.date),entry].sort((a,b)=>a.date.localeCompare(b.date));setWeightLog(updated);await fbSet("stats","weight",{entries:updated});setWeeklyData(prev=>prev.map(d=>d.date===entry.date?{...d,weight:entry.weight}:d));}
+  async function saveCheckin(entry){const updated=[...checkins.filter(c=>c.date!==entry.date),entry].sort((a,b)=>a.date.localeCompare(b.date));setCheckins(updated);await fbSet("data","checkins",{entries:updated});}
   async function addPhoto(photo){await fbSet("photos",photo.id,photo);setPhotos(prev=>[...prev,photo]);}
   async function deletePhoto(id){await fbDel("photos",id);setPhotos(prev=>prev.filter(p=>p.id!==id));}
   async function saveMyFood(food){const updated=[...myFoods.filter(f=>f.name!==food.name),food];setMyFoods(updated);await fbSet("data","myfoods",{items:updated});}
@@ -1369,7 +1443,7 @@ export default function App() {
   async function saveBodyScan(scan){const updated=[...bodyScanLog.filter(s=>s.date!==scan.date),scan].sort((a,b)=>a.date.localeCompare(b.date));setBodyScanLog(updated);await fbSet("data","bodyscans",{scans:updated});if(scan.weight){const wUp=[...weightLog.filter(w=>w.date!==scan.date),{date:scan.date,weight:scan.weight}].sort((a,b)=>a.date.localeCompare(b.date));setWeightLog(wUp);await fbSet("stats","weight",{entries:wUp});}}
   async function logWater(glasses){setWaterLog(glasses);await fbSet("water",getToday(),{glasses,date:getToday()});}
   async function saveSettings(s){setSettings(s);await fbSet("data","settings",s);}
-  function exportData(){const data={foodLog,suppLog,weightLog,myFoods,meals,sessions,exportedAt:new Date().toISOString()};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="fitness-hub-"+getToday()+".json";a.click();URL.revokeObjectURL(url);}
+  function exportData(){const data={foodLog,suppLog,weightLog,checkins,myFoods,meals,sessions,bodyScanLog,exportedAt:new Date().toISOString()};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="fitness-hub-"+getToday()+".json";a.click();URL.revokeObjectURL(url);}
 
   const totals=foodLog.reduce((acc,f)=>({kcal:acc.kcal+(Number(f.kcal)||0),protein:acc.protein+(Number(f.protein)||0),carbs:acc.carbs+(Number(f.carbs)||0),fat:acc.fat+(Number(f.fat)||0)}),{kcal:0,protein:0,carbs:0,fat:0});
 
@@ -1388,7 +1462,7 @@ export default function App() {
         {tab==="home"     &&<HomeTab     totals={totals} suppLog={suppLog} weightLog={weightLog} weeklyData={weeklyData} sessions={sessions} onExport={exportData} waterLog={waterLog} onLogWater={logWater} T={T}/>}
         {tab==="log"      &&<LogTab      foodLog={foodLog} totals={totals} onAdd={addFood} onRemove={removeFood} myFoods={myFoods} onSaveFood={saveMyFood} onDeleteMyFood={deleteMyFood} meals={meals} onSaveMeals={saveMeals} globalDate={globalDate} onDateChange={changeDate} T={T}/>}
         {tab==="train"    &&<TrainTab    sessions={sessions} onSaveSession={saveSession} onDeleteSession={deleteSession} weeklyData={weeklyData} globalDate={globalDate} onDateChange={changeDate} T={T}/>}
-        {tab==="body"     &&<BodyTab     weightLog={weightLog} onAdd={addWeight} photos={photos} onAddPhoto={addPhoto} onDeletePhoto={deletePhoto} bodyScanLog={bodyScanLog} onSaveScan={saveBodyScan} T={T}/>}
+        {tab==="body"     &&<BodyTab     weightLog={weightLog} onAdd={addWeight} photos={photos} onAddPhoto={addPhoto} onDeletePhoto={deletePhoto} bodyScanLog={bodyScanLog} onSaveScan={saveBodyScan} checkins={checkins} onSaveCheckin={saveCheckin} T={T}/>}
         {tab==="supps"    &&<SuppsTab    suppLog={suppLog} onToggle={toggleSupp} globalDate={globalDate} onDateChange={changeDate} T={T}/>}
         {tab==="settings" &&<SettingsTab settings={settings} onSave={saveSettings} T={T} accent={accent}/>}
       </div>
