@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from "recharts";
 import { db, UID } from "./firebase.js";
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "firebase/firestore";
-
 // ── Accent colours ────────────────────────────────────────────────────────────
 const ACCENT_COLORS = [
   { id:"orange", label:"Orange", value:"#ff6b35" },
@@ -12,7 +11,6 @@ const ACCENT_COLORS = [
   { id:"teal",   label:"Teal",   value:"#2dd4bf" },
 ];
 function getAccent(id) { return ACCENT_COLORS.find(a=>a.id===id)?.value || "#ff6b35"; }
-
 // ── Design tokens ─────────────────────────────────────────────────────────────
 function tokens(accent) {
   return {
@@ -23,10 +21,8 @@ function tokens(accent) {
     danger:"#ff4d4d", success:"#22c55e", warning:"#f59e0b",
   };
 }
-
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TARGETS = { kcal:1950, protein:134, carbs:230, fat:55 };
-
 const DEFAULT_MEALS = [
   { id:"breakfast", label:"Breakfast", emoji:"🌅", time:"7:00am", items:[
     { name:"Actimel Original 100ml",    kcal:73,  protein:3,    carbs:11,  fat:1.5, defaultQty:100, unit:"ml" },
@@ -51,58 +47,55 @@ const DEFAULT_MEALS = [
     { name:"Myprotein Whey Shake 25g",      kcal:109, protein:17,  carbs:1.2,  fat:4,    defaultQty:25,  unit:"g" },
   ]},
 ];
-
 const FOOD_DB = [
-  { name:"Banana (medium)",          kcal:89,  protein:1.1, carbs:23,  fat:0.3 },
-  { name:"Apple (medium)",           kcal:72,  protein:0.4, carbs:19,  fat:0.2 },
-  { name:"Orange (medium)",          kcal:62,  protein:1.2, carbs:15,  fat:0.2 },
-  { name:"Mango 100g",               kcal:60,  protein:0.8, carbs:15,  fat:0.4 },
-  { name:"Greek Yogurt 100g",        kcal:66,  protein:7,   carbs:8,   fat:0.5 },
-  { name:"Arla Skyr Vanilla 100g",   kcal:73,  protein:8.6, carbs:8.6, fat:0.2 },
-  { name:"Whole Milk 200ml",         kcal:130, protein:6.8, carbs:9.4, fat:7.4 },
-  { name:"Paneer 100g (Apetina)",    kcal:174, protein:22,  carbs:3.2, fat:8   },
-  { name:"Paneer 100g (Everest)",    kcal:347, protein:20.9,carbs:4.1, fat:27.7},
-  { name:"Tofu 100g",                kcal:76,  protein:8,   carbs:1.9, fat:4.8 },
-  { name:"Chickpeas 100g (cooked)",  kcal:148, protein:8,   carbs:18,  fat:3   },
-  { name:"Lentils 100g (cooked)",    kcal:116, protein:9,   carbs:20,  fat:0.4 },
-  { name:"Edamame 100g",             kcal:155, protein:12,  carbs:6.5, fat:7.6 },
-  { name:"Oats 100g (dry)",          kcal:389, protein:17,  carbs:66,  fat:7   },
-  { name:"Brown Rice 100g (cooked)", kcal:112, protein:2.3, carbs:24,  fat:0.8 },
-  { name:"White Rice 100g (cooked)", kcal:130, protein:2.7, carbs:28,  fat:0.3 },
-  { name:"Wholemeal Bread (slice)",  kcal:78,  protein:3.5, carbs:14,  fat:1   },
-  { name:"Rotli (1 medium)",         kcal:85,  protein:2.8, carbs:17,  fat:0.7 },
-  { name:"Chapati (1 medium)",       kcal:80,  protein:2.5, carbs:15,  fat:1   },
-  { name:"Naan (1 medium)",          kcal:262, protein:8.7, carbs:45,  fat:5.1 },
-  { name:"Peanut Butter 1 tbsp",     kcal:94,  protein:4,   carbs:3.1, fat:8   },
-  { name:"Almonds 30g",              kcal:173, protein:6.3, carbs:6,   fat:15  },
-  { name:"Almonds 5 nuts",           kcal:35,  protein:1.3, carbs:1.2, fat:3   },
-  { name:"Sweet Potato 100g",        kcal:86,  protein:1.6, carbs:20,  fat:0.1 },
-  { name:"Broccoli 100g",            kcal:34,  protein:2.8, carbs:7,   fat:0.4 },
-  { name:"Spinach 100g",             kcal:23,  protein:2.9, carbs:3.6, fat:0.4 },
-  { name:"Dal 100g (cooked)",        kcal:116, protein:9,   carbs:20,  fat:0.4 },
-  { name:"Biryani 200g",             kcal:320, protein:18,  carbs:42,  fat:8   },
-  { name:"Samosa (1)",               kcal:150, protein:3,   carbs:18,  fat:8   },
-  { name:"Gathiya 20g",              kcal:100, protein:2.8, carbs:10,  fat:5.6 },
-  { name:"Crispy Bhindi 30g",        kcal:40,  protein:1.2, carbs:4.2, fat:1.5 },
-  { name:"Pizza slice",              kcal:250, protein:10,  carbs:32,  fat:9   },
-  { name:"Whey Protein 25g",         kcal:109, protein:17,  carbs:1.2, fat:4   },
-  { name:"Protein Bar (avg)",        kcal:200, protein:20,  carbs:22,  fat:7   },
-  { name:"KP Peanuts 30g",           kcal:177, protein:8.5, carbs:3.4, fat:13.8},
-  { name:"Nasto mix 30g",            kcal:143, protein:2,   carbs:17,  fat:7   },
-  { name:"Actimel 100ml",            kcal:73,  protein:3,   carbs:11,  fat:1.5 },
-  { name:"Soya Crispies 30g",        kcal:109, protein:22.5,carbs:2.3, fat:0.7 },
-  { name:"Coffee (black)",           kcal:2,   protein:0.3, carbs:0,   fat:0   },
-  { name:"Orange Juice 200ml",       kcal:84,  protein:1.2, carbs:20,  fat:0.2 },
-  { name:"Creatine 3g",              kcal:0,   protein:0,   carbs:0,   fat:0   },
+  { name:"Banana (medium)",          kcal:89,  protein:1.1, carbs:23,  fat:0.3,  defaultQty:1,   unit:"x"    },
+  { name:"Apple (medium)",           kcal:72,  protein:0.4, carbs:19,  fat:0.2,  defaultQty:1,   unit:"x"    },
+  { name:"Orange (medium)",          kcal:62,  protein:1.2, carbs:15,  fat:0.2,  defaultQty:1,   unit:"x"    },
+  { name:"Mango 100g",               kcal:60,  protein:0.8, carbs:15,  fat:0.4,  defaultQty:100, unit:"g"    },
+  { name:"Greek Yogurt 100g",        kcal:66,  protein:7,   carbs:8,   fat:0.5,  defaultQty:100, unit:"g"    },
+  { name:"Arla Skyr Vanilla 100g",   kcal:73,  protein:8.6, carbs:8.6, fat:0.2,  defaultQty:100, unit:"g"    },
+  { name:"Whole Milk 200ml",         kcal:130, protein:6.8, carbs:9.4, fat:7.4,  defaultQty:200, unit:"ml"   },
+  { name:"Paneer 100g (Apetina)",    kcal:174, protein:22,  carbs:3.2, fat:8,    defaultQty:100, unit:"g"    },
+  { name:"Paneer 100g (Everest)",    kcal:347, protein:20.9,carbs:4.1, fat:27.7, defaultQty:100, unit:"g"    },
+  { name:"Tofu 100g",                kcal:76,  protein:8,   carbs:1.9, fat:4.8,  defaultQty:100, unit:"g"    },
+  { name:"Chickpeas 100g (cooked)",  kcal:148, protein:8,   carbs:18,  fat:3,    defaultQty:100, unit:"g"    },
+  { name:"Lentils 100g (cooked)",    kcal:116, protein:9,   carbs:20,  fat:0.4,  defaultQty:100, unit:"g"    },
+  { name:"Edamame 100g",             kcal:155, protein:12,  carbs:6.5, fat:7.6,  defaultQty:100, unit:"g"    },
+  { name:"Oats 100g (dry)",          kcal:389, protein:17,  carbs:66,  fat:7,    defaultQty:100, unit:"g"    },
+  { name:"Brown Rice 100g (cooked)", kcal:112, protein:2.3, carbs:24,  fat:0.8,  defaultQty:100, unit:"g"    },
+  { name:"White Rice 100g (cooked)", kcal:130, protein:2.7, carbs:28,  fat:0.3,  defaultQty:100, unit:"g"    },
+  { name:"Wholemeal Bread (slice)",  kcal:78,  protein:3.5, carbs:14,  fat:1,    defaultQty:1,   unit:"x"    },
+  { name:"Rotli (1 medium)",         kcal:85,  protein:2.8, carbs:17,  fat:0.7,  defaultQty:1,   unit:"x"    },
+  { name:"Chapati (1 medium)",       kcal:80,  protein:2.5, carbs:15,  fat:1,    defaultQty:1,   unit:"x"    },
+  { name:"Naan (1 medium)",          kcal:262, protein:8.7, carbs:45,  fat:5.1,  defaultQty:1,   unit:"x"    },
+  { name:"Peanut Butter 1 tbsp",     kcal:94,  protein:4,   carbs:3.1, fat:8,    defaultQty:1,   unit:"tbsp" },
+  { name:"Almonds 30g",              kcal:173, protein:6.3, carbs:6,   fat:15,   defaultQty:30,  unit:"g"    },
+  { name:"Almonds 5 nuts",           kcal:35,  protein:1.3, carbs:1.2, fat:3,    defaultQty:5,   unit:"x"    },
+  { name:"Sweet Potato 100g",        kcal:86,  protein:1.6, carbs:20,  fat:0.1,  defaultQty:100, unit:"g"    },
+  { name:"Broccoli 100g",            kcal:34,  protein:2.8, carbs:7,   fat:0.4,  defaultQty:100, unit:"g"    },
+  { name:"Spinach 100g",             kcal:23,  protein:2.9, carbs:3.6, fat:0.4,  defaultQty:100, unit:"g"    },
+  { name:"Dal 100g (cooked)",        kcal:116, protein:9,   carbs:20,  fat:0.4,  defaultQty:100, unit:"g"    },
+  { name:"Biryani 200g",             kcal:320, protein:18,  carbs:42,  fat:8,    defaultQty:200, unit:"g"    },
+  { name:"Samosa (1)",               kcal:150, protein:3,   carbs:18,  fat:8,    defaultQty:1,   unit:"x"    },
+  { name:"Gathiya 20g",              kcal:100, protein:2.8, carbs:10,  fat:5.6,  defaultQty:20,  unit:"g"    },
+  { name:"Crispy Bhindi 30g",        kcal:40,  protein:1.2, carbs:4.2, fat:1.5,  defaultQty:30,  unit:"g"    },
+  { name:"Pizza slice",              kcal:250, protein:10,  carbs:32,  fat:9,    defaultQty:1,   unit:"x"    },
+  { name:"Whey Protein 25g",         kcal:109, protein:17,  carbs:1.2, fat:4,    defaultQty:25,  unit:"g"    },
+  { name:"Protein Bar (avg)",        kcal:200, protein:20,  carbs:22,  fat:7,    defaultQty:1,   unit:"x"    },
+  { name:"KP Peanuts 30g",           kcal:177, protein:8.5, carbs:3.4, fat:13.8, defaultQty:30,  unit:"g"    },
+  { name:"Nasto mix 30g",            kcal:143, protein:2,   carbs:17,  fat:7,    defaultQty:30,  unit:"g"    },
+  { name:"Actimel 100ml",            kcal:73,  protein:3,   carbs:11,  fat:1.5,  defaultQty:100, unit:"ml"   },
+  { name:"Soya Crispies 30g",        kcal:109, protein:22.5,carbs:2.3, fat:0.7,  defaultQty:30,  unit:"g"    },
+  { name:"Coffee (black)",           kcal:2,   protein:0.3, carbs:0,   fat:0,    defaultQty:1,   unit:"x"    },
+  { name:"Orange Juice 200ml",       kcal:84,  protein:1.2, carbs:20,  fat:0.2,  defaultQty:200, unit:"ml"   },
+  { name:"Creatine 3g",              kcal:0,   protein:0,   carbs:0,   fat:0,    defaultQty:3,   unit:"g"    },
 ];
-
 const SUPPLEMENTS = [
   { id:"vitd",  label:"Vitamin D",          time:"Morning",     emoji:"☀️", color:"#f59e0b" },
   { id:"iq",    label:"IQ Supplement",       time:"Morning",     emoji:"🧠", color:"#4facfe" },
   { id:"ashwa", label:"Ashwagandha KSM-66",  time:"With Dinner", emoji:"🌿", color:"#22c55e" },
   { id:"mag",   label:"Magnesium Glycinate", time:"Before Bed",  emoji:"😴", color:"#a78bfa" },
 ];
-
 const GYM_EXERCISES = {
   "Chest":     ["Bench Press","Incline Bench Press","Decline Bench Press","Chest Flyes","Cable Crossover","Dips"],
   "Back":      ["Deadlift","Barbell Row","Lat Pulldown","Cable Row","T-Bar Row","Seated Row"],
@@ -118,7 +111,6 @@ const BW_EXERCISES = {
   "Core": ["Plank","Crunches","Leg Raises","Mountain Climbers","Burpees"],
 };
 const CARDIO_TYPES = ["Incline Walk","Treadmill","Cross Trainer","Cycling","Rowing","Running (outdoor)","HIIT","Swimming"];
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const getToday = () => new Date().toISOString().split("T")[0];
 const fmtDate = d => { try { return new Date(d+"T00:00:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"}); } catch { return d; } };
@@ -128,7 +120,6 @@ const mealTotal = meal => meal.items.reduce((a,i)=>({kcal:a.kcal+i.kcal,protein:
 const avg = arr => arr.length ? arr.reduce((s,n)=>s+(Number(n)||0),0)/arr.length : null;
 const lastNDays = n => Array.from({length:n},(_,i)=>{const d=new Date(); d.setDate(d.getDate()-(n-1-i)); return d.toISOString().split("T")[0];});
 const inLastDays = (date,n) => { const d=new Date(date+"T00:00:00"); const start=new Date(); start.setDate(start.getDate()-(n-1)); start.setHours(0,0,0,0); return d>=start; };
-
 const compress = file => new Promise((resolve,reject) => {
   const reader = new FileReader();
   reader.onerror = () => reject(new Error("Read failed"));
@@ -148,13 +139,11 @@ const compress = file => new Promise((resolve,reject) => {
   };
   reader.readAsDataURL(file);
 });
-
 const userDoc = (col,id) => doc(db,"users",UID,col,id);
 const fbGet = async (col,id) => { try { const snap=await getDoc(userDoc(col,id)); return snap.exists()?snap.data():null; } catch { return null; } };
 const fbSet = async (col,id,data) => { try { await setDoc(userDoc(col,id),data); } catch(e) { console.error(e); } };
 const fbDel = async (col,id) => { try { await deleteDoc(userDoc(col,id)); } catch {} };
 const fbGetAll = async col => { try { const snap=await getDocs(collection(db,"users",UID,col)); return snap.docs.map(d=>({id:d.id,...d.data()})); } catch { return []; } };
-
 // ── Shared UI ─────────────────────────────────────────────────────────────────
 function Ring({ value, max, color, size=90, stroke=7, children }) {
   const r=(size-stroke)/2, circ=2*Math.PI*r, pct=Math.min(value/max,1);
@@ -169,11 +158,9 @@ function Ring({ value, max, color, size=90, stroke=7, children }) {
     </div>
   );
 }
-
 function Lbl({ children, color, style }) {
   return <div style={{fontSize:10,color:color||"#ff6b35",fontFamily:"monospace",letterSpacing:3,fontWeight:600,...(style||{})}}>{children}</div>;
 }
-
 function MiniBar({ value, max, color, height=3 }) {
   return (
     <div style={{height,background:"#2a2a2a",borderRadius:99}}>
@@ -181,7 +168,6 @@ function MiniBar({ value, max, color, height=3 }) {
     </div>
   );
 }
-
 function MacroRow({ label, value, target, color }) {
   return (
     <div style={{marginBottom:10}}>
@@ -193,12 +179,10 @@ function MacroRow({ label, value, target, color }) {
     </div>
   );
 }
-
 function Toast({ msg }) {
   if (!msg) return null;
   return <div style={{position:"fixed",top:24,left:"50%",transform:"translateX(-50%)",background:"#1e1e1e",color:"#fff",padding:"12px 20px",borderRadius:99,fontSize:13,fontWeight:600,zIndex:99999,border:"1px solid #333",whiteSpace:"nowrap",pointerEvents:"none",boxShadow:"0 8px 32px rgba(0,0,0,0.6)"}}>{msg}</div>;
 }
-
 function DateNav({ date, onChange, T }) {
   const isToday = date===getToday();
   const back = () => { const d=new Date(date+"T00:00:00"); d.setDate(d.getDate()-1); onChange(d.toISOString().split("T")[0]); };
@@ -216,7 +200,6 @@ function DateNav({ date, onChange, T }) {
     </div>
   );
 }
-
 function SubTabs({ tabs, active, onChange, T }) {
   return (
     <div style={{display:"flex",background:T.surface,borderBottom:`1px solid ${T.border}`,overflowX:"auto"}}>
@@ -228,7 +211,6 @@ function SubTabs({ tabs, active, onChange, T }) {
     </div>
   );
 }
-
 // ── Nutrition Label Scanner ───────────────────────────────────────────────────
 function NutritionScanModal({ onConfirm, onClose, T }) {
   const [scanning,setScanning]=useState(false), [result,setResult]=useState(null), [error,setError]=useState(""), [tReady,setTReady]=useState(!!window.Tesseract), [foodName,setFoodName]=useState(""), [editedMacros,setEditedMacros]=useState(null);
@@ -307,13 +289,12 @@ function NutritionScanModal({ onConfirm, onClose, T }) {
     </div>
   );
 }
-
 // ── Quantity Modal ────────────────────────────────────────────────────────────
 function QuantityModal({ item, onConfirm, onClose, T }) {
   const [qty,setQty]=useState(item.defaultQty||100);
   const base=item.defaultQty||100, unit=item.unit||"g", ratio=Number(qty)/base;
   const scaled={kcal:Math.round((item.kcal||0)*ratio),protein:Math.round((item.protein||0)*ratio*10)/10,carbs:Math.round((item.carbs||0)*ratio*10)/10,fat:Math.round((item.fat||0)*ratio*10)/10};
-  const presets=unit==="x"?[1,2,3,4,5]:unit==="ml"?[50,100,150,200,250]:[25,50,75,100,125,150,200];
+  const presets=unit==="x"||unit==="tbsp"?[1,2,3,4,5,10]:unit==="ml"?[50,100,150,200,250]:[25,50,75,100,125,150,200];
   return (
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:99998,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480,background:T.surface,borderRadius:"20px 20px 0 0",padding:"20px 20px 44px",border:`1px solid ${T.border}`}}>
@@ -321,14 +302,14 @@ function QuantityModal({ item, onConfirm, onClose, T }) {
         <div style={{fontSize:16,fontWeight:700,color:T.text,marginBottom:4}}>{item.name}</div>
         <div style={{fontSize:12,color:T.textSub,marginBottom:20}}>Default: {base}{unit} · Adjust below</div>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
-          <button type="button" onClick={()=>setQty(q=>Math.max(unit==="x"?1:5,Number(q)-(unit==="x"?1:unit==="ml"?50:10)))}
+          <button type="button" onClick={()=>setQty(q=>Math.max(unit==="x"||unit==="tbsp"?1:5,Number(q)-(unit==="x"||unit==="tbsp"?1:unit==="ml"?50:10)))}
             style={{width:52,height:52,borderRadius:14,background:T.surfaceAlt,border:`1px solid ${T.border}`,cursor:"pointer",fontSize:22,fontWeight:700,color:T.text}}>−</button>
           <div style={{flex:1,display:"flex",alignItems:"center",gap:10}}>
             <input type="number" value={qty} onChange={e=>setQty(e.target.value)} min="1"
               style={{flex:1,padding:"14px",borderRadius:14,border:`2px solid ${T.accent}`,fontSize:24,fontWeight:800,textAlign:"center",fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text}}/>
             <span style={{fontSize:16,color:T.textSub,fontWeight:600}}>{unit}</span>
           </div>
-          <button type="button" onClick={()=>setQty(q=>Number(q)+(unit==="x"?1:unit==="ml"?50:10))}
+          <button type="button" onClick={()=>setQty(q=>Number(q)+(unit==="x"||unit==="tbsp"?1:unit==="ml"?50:10))}
             style={{width:52,height:52,borderRadius:14,background:T.surfaceAlt,border:`1px solid ${T.border}`,cursor:"pointer",fontSize:22,fontWeight:700,color:T.text}}>+</button>
         </div>
         <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
@@ -354,7 +335,6 @@ function QuantityModal({ item, onConfirm, onClose, T }) {
     </div>
   );
 }
-
 // ── Weekly Analysis Card ──────────────────────────────────────────────────────
 function WeeklyAnalysisCard({ sessions, weeklyData, T }) {
   const [copied,setCopied]=useState(false);
@@ -405,8 +385,70 @@ function WeeklyAnalysisCard({ sessions, weeklyData, T }) {
   );
 }
 
+// ── Macro Breakdown Modal ─────────────────────────────────────────────────────
+function MacroBreakdownModal({ foodLog, T, onClose }) {
+  const [view,setView]=useState("protein");
+  const macroTabs=[["protein","Protein","#22c55e"],["carbs","Carbs","#4facfe"],["fat","Fat","#f59e0b"],["kcal","Calories",T.accent]];
+  const sorted=[...foodLog].sort((a,b)=>(b[view]||0)-(a[view]||0));
+  const totals=foodLog.reduce((acc,f)=>({kcal:acc.kcal+(Number(f.kcal)||0),protein:acc.protein+(Number(f.protein)||0),carbs:acc.carbs+(Number(f.carbs)||0),fat:acc.fat+(Number(f.fat)||0)}),{kcal:0,protein:0,carbs:0,fat:0});
+  const getVal=item=>view==="kcal"?Math.round(item.kcal||0):Math.round((item[view]||0)*10)/10;
+  const total=view==="kcal"?Math.round(totals.kcal):Math.round((totals[view]||0)*10)/10;
+  const unit=view==="kcal"?"kcal":"g";
+  const activeColor=macroTabs.find(t=>t[0]===view)?.[2]||T.accent;
+  const activeLabel=macroTabs.find(t=>t[0]===view)?.[1]||view;
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:99999,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480,background:T.surface,borderRadius:"20px 20px 0 0",display:"flex",flexDirection:"column",maxHeight:"82vh",border:`1px solid ${T.border}`}}>
+        <div style={{padding:"20px 20px 12px",flexShrink:0}}>
+          <div style={{width:36,height:4,background:T.border,borderRadius:99,margin:"0 auto 18px"}}/>
+          <div style={{fontSize:17,fontWeight:700,color:T.text,marginBottom:4}}>Today's Macro Breakdown</div>
+          <div style={{fontSize:12,color:T.textSub,marginBottom:14}}>{foodLog.length} items logged — tap a macro to sort</div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6}}>
+            {macroTabs.map(([key,label,color])=>(
+              <button key={key} type="button" onClick={()=>setView(key)} style={{padding:"10px 4px",borderRadius:10,border:`1px solid ${view===key?color:T.border}`,background:view===key?color+"22":T.surfaceAlt,color:view===key?color:T.textMuted,fontSize:11,fontWeight:700,cursor:"pointer"}}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{overflowY:"auto",flex:1,padding:"4px 20px 0"}}>
+          {sorted.length===0?(
+            <div style={{textAlign:"center",padding:"40px 20px",color:T.textMuted,fontSize:13}}>No food logged yet</div>
+          ):(
+            sorted.map((item,i)=>{
+              const val=getVal(item);
+              const pct=total>0?Math.round((val/total)*100):0;
+              return(
+                <div key={item.id||i} style={{marginBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                    <span style={{fontSize:13,color:T.text,flex:1,paddingRight:8,lineHeight:1.4}}>{item.name}</span>
+                    <span style={{fontSize:14,fontWeight:800,color:activeColor,flexShrink:0}}>{val}{unit}</span>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <div style={{flex:1,height:5,background:T.border,borderRadius:99}}>
+                      <div style={{height:"100%",width:`${pct}%`,background:activeColor,borderRadius:99,transition:"width 0.4s"}}/>
+                    </div>
+                    <span style={{fontSize:10,color:T.textMuted,width:32,textAlign:"right"}}>{pct}%</span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div style={{padding:"14px 20px 36px",borderTop:`1px solid ${T.border}`,flexShrink:0}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:13,color:T.textSub}}>Total {activeLabel}</span>
+            <span style={{fontSize:18,fontWeight:900,color:activeColor}}>{total}{unit}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Home Tab ──────────────────────────────────────────────────────────────────
-function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, waterLog, onLogWater, T }) {
+function HomeTab({ totals, foodLog, suppLog, weightLog, weeklyData, sessions, onExport, waterLog, onLogWater, T }) {
+  const [showMacroDetail,setShowMacroDetail]=useState(false);
   const hr=new Date().getHours(), greeting=hr<12?"Good morning":hr<17?"Good afternoon":"Good evening";
   const dateStr=new Date().toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
   const latest=weightLog.length?weightLog[weightLog.length-1].weight:null;
@@ -424,11 +466,15 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
       <div style={{padding:"16px 16px 0"}}>
         {/* Calorie card */}
         <div style={{background:T.surface,borderRadius:24,padding:"22px",marginBottom:10,border:`1px solid ${T.border}`}}>
-          <div style={{display:"flex",alignItems:"center",gap:20}}>
+          {showMacroDetail&&<MacroBreakdownModal foodLog={foodLog} T={T} onClose={()=>setShowMacroDetail(false)}/>}
+      <div style={{display:"flex",alignItems:"center",gap:20}}>
+            <div onClick={()=>setShowMacroDetail(true)} style={{cursor:"pointer",position:"relative"}}>
             <Ring value={totals.kcal} max={TARGETS.kcal} color={T.accent} size={96} stroke={8}>
               <div style={{fontSize:20,fontWeight:900,color:T.text,lineHeight:1}}>{Math.round(totals.kcal)}</div>
               <div style={{fontSize:9,color:T.textSub,marginTop:2,fontFamily:"monospace"}}>KCAL</div>
+              <div style={{fontSize:7,color:T.textMuted,fontFamily:"monospace",letterSpacing:1}}>TAP ▸</div>
             </Ring>
+            </div>
             <div style={{flex:1}}>
               <MacroRow label="Protein" value={totals.protein} target={TARGETS.protein} color="#22c55e"/>
               <MacroRow label="Carbs"   value={totals.carbs}   target={TARGETS.carbs}   color="#4facfe"/>
@@ -448,7 +494,6 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
         </div>
         {(() => {
           const trainedToday = sessions.some(s=>s.date===getToday());
-
           // Live adherence scoring — gives partial credit as the day progresses.
           // This avoids showing 0% just because targets are not fully completed yet.
           const proteinPct = Math.min(totals.protein / TARGETS.protein, 1);
@@ -458,9 +503,7 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
           const trainingPct = trainedToday ? 1 : 0;
           const waterPct = Math.min(waterLog / 10, 1);
           const suppPct = SUPPLEMENTS.length ? Math.min(suppLog.length / SUPPLEMENTS.length, 1) : 0;
-
           const score = Math.round(((proteinPct + caloriePct + trainingPct + waterPct + suppPct) / 5) * 100);
-
           const items = [
             ["Protein", proteinPct >= 1, Math.round(totals.protein)+"g", Math.round(proteinPct*100)+"%"],
             ["Calories", caloriePct >= 0.9, Math.round(totals.kcal)+" kcal", Math.round(caloriePct*100)+"%"],
@@ -558,10 +601,9 @@ function HomeTab({ totals, suppLog, weightLog, weeklyData, sessions, onExport, w
     </div>
   );
 }
-
 // ── Log Tab ───────────────────────────────────────────────────────────────────
 function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDeleteMyFood, meals, onSaveMeals, globalDate, onDateChange, T }) {
-  const [subTab,setSubTab]=useState("quick"), [expandedMeal,setExpandedMeal]=useState(null), [toast,setToast]=useState(""), [searchQ,setSearchQ]=useState(""), [searchRes,setSearchRes]=useState([]), [manual,setManual]=useState({name:"",kcal:"",protein:"",carbs:"",fat:""}), [editingMeal,setEditingMeal]=useState(null), [newItem,setNewItem]=useState({name:"",kcal:"",protein:"",carbs:"",fat:""}), [qtyItem,setQtyItem]=useState(null), [showScan,setShowScan]=useState(false);
+  const [subTab,setSubTab]=useState("quick"), [expandedMeal,setExpandedMeal]=useState(null), [toast,setToast]=useState(""), [searchQ,setSearchQ]=useState(""), [searchRes,setSearchRes]=useState([]), [manual,setManual]=useState({name:"",kcal:"",protein:"",carbs:"",fat:""}), [editingMeal,setEditingMeal]=useState(null), [newItem,setNewItem]=useState({name:"",kcal:"",protein:"",carbs:"",fat:""}), [qtyItem,setQtyItem]=useState(null), [showScan,setShowScan]=useState(false), [planItems,setPlanItems]=useState([]), [planSearch,setPlanSearch]=useState(""), [planSearchRes,setPlanSearchRes]=useState([]);
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),2500);}
   function openQty(name,kcal,protein,carbs,fat,defaultQty=100,unit="g"){setQtyItem({name,kcal,protein,carbs,fat,defaultQty,unit});}
   function logItem(name,kcal,protein,carbs,fat){onAdd({id:Date.now()+"_"+Math.random(),name:String(name),kcal:Number(kcal)||0,protein:Number(protein)||0,carbs:Number(carbs)||0,fat:Number(fat)||0});showToast("✅ "+name+" added!");}
@@ -570,7 +612,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
   function removeMealItem(mealId,idx){onSaveMeals(meals.map(m=>m.id===mealId?{...m,items:m.items.filter((_,i)=>i!==idx)}:m));}
   function addMealItem(mealId){if(!newItem.name.trim()||!newItem.kcal)return;const item={name:newItem.name,kcal:Number(newItem.kcal)||0,protein:Number(newItem.protein)||0,carbs:Number(newItem.carbs)||0,fat:Number(newItem.fat)||0};onSaveMeals(meals.map(m=>m.id===mealId?{...m,items:[...m.items,item]}:m));setNewItem({name:"",kcal:"",protein:"",carbs:"",fat:""});showToast("✅ Item added!");}
   function resetMeal(mealId){const def=DEFAULT_MEALS.find(m=>m.id===mealId);if(!def)return;onSaveMeals(meals.map(m=>m.id===mealId?{...m,items:[...def.items]}:m));showToast("✅ Reset to default");}
-  const tabs=[["quick","⚡ MEALS"],["myfoods","⭐ MY FOODS ("+myFoods.length+")"],["search","🔍 SEARCH"],["manual","✏️ MANUAL"],["log","📋 LOG ("+foodLog.length+")"]];
+  const tabs=[["quick","⚡ MEALS"],["log","📋 LOG ("+foodLog.length+")"],["plan","📅 PLAN"],["myfoods","⭐ MY FOODS ("+myFoods.length+")"],["search","🔍 SEARCH"],["manual","✏️ MANUAL"]];
   const cleanLoggedName = name => String(name||"").replace(/\s*\([^)]*\)\s*$/," ").trim().toLowerCase();
   const isFoodLogged = name => {
     const target = cleanLoggedName(name);
@@ -605,7 +647,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
         {subTab==="quick"&&meals.map(meal=>{
           const tot=mealTotal(meal), isEditing=editingMeal===meal.id, mealLogged=isMealLogged(meal);
           return (
-            <div key={meal.id} style={{background:mealLogged?T.accentDim:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${mealLogged?T.accent:T.border}`,boxShadow:mealLogged?`0 0 0 1px ${T.accentMid}, 0 0 18px ${T.accentDim}`:"none",transition:"all 0.2s ease"}}>
+            <div key={meal.id} style={{background:mealLogged?"#0c2a0c":T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${mealLogged?"#22c55e":T.border}`,boxShadow:mealLogged?"0 0 0 2px #22c55e40, 0 4px 24px #22c55e18":"none",transition:"all 0.2s ease"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
                 <div>
                   <div style={{fontSize:11,color:T.textMuted,marginBottom:3}}>{meal.time}</div>
@@ -675,7 +717,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
               {!isEditing&&expandedMeal===meal.id&&(
                 <div style={{marginTop:10}}>
                   {meal.items.map((item,idx)=>(
-                    <div key={idx} style={{display:"flex",alignItems:"center",gap:10,background:isFoodLogged(item.name)?T.accentDim:T.surfaceAlt,borderRadius:12,padding:"12px",marginBottom:8,border:`1px solid ${isFoodLogged(item.name)?T.accent:T.border}`,boxShadow:isFoodLogged(item.name)?`0 0 12px ${T.accentDim}`:"none",transition:"all 0.2s ease"}}>
+                    <div key={idx} style={{display:"flex",alignItems:"center",gap:10,background:isFoodLogged(item.name)?"#0c2a0c":T.surfaceAlt,borderRadius:12,padding:"12px",marginBottom:8,border:`1px solid ${isFoodLogged(item.name)?"#22c55e":T.border}`,boxShadow:isFoodLogged(item.name)?"0 2px 12px #22c55e20":"none",transition:"all 0.2s ease"}}>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:6}}>{item.name}</div>
                         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
@@ -711,7 +753,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
               </div>
             ):(
               myFoods.map((food,i)=>(
-                <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:isFoodLogged(food.name)?T.accentDim:T.surface,borderRadius:16,padding:"14px 16px",marginBottom:8,border:`1px solid ${isFoodLogged(food.name)?T.accent:T.border}`,boxShadow:isFoodLogged(food.name)?`0 0 12px ${T.accentDim}`:"none",transition:"all 0.2s ease"}}>
+                <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:isFoodLogged(food.name)?"#0c2a0c":T.surface,borderRadius:16,padding:"14px 16px",marginBottom:8,border:`1px solid ${isFoodLogged(food.name)?"#22c55e":T.border}`,boxShadow:isFoodLogged(food.name)?"0 2px 12px #22c55e20":"none",transition:"all 0.2s ease"}}>
                   <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700,color:T.text,marginBottom:4}}>{food.name}</div>
                     <div style={{display:"flex",gap:10,fontSize:11}}>
@@ -722,7 +764,7 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
                     </div>
                   </div>
                   <button type="button" onClick={()=>onDeleteMyFood(food.name)} style={{width:32,height:32,borderRadius:"50%",background:"#ff4d4d15",color:T.danger,border:`1px solid #ff4d4d30`,cursor:"pointer",fontSize:14}}>✕</button>
-                  <button type="button" onClick={()=>openQty(food.name,food.kcal,food.protein,food.carbs,food.fat)} style={{width:48,height:48,borderRadius:12,background:isFoodLogged(food.name)?T.success:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:isFoodLogged(food.name)?16:22,fontWeight:900}}>{isFoodLogged(food.name)?"✓":"+"}</button>
+                  <button type="button" onClick={()=>openQty(food.name,food.kcal,food.protein,food.carbs,food.fat,food.defaultQty||100,food.unit||"g")} style={{width:48,height:48,borderRadius:12,background:isFoodLogged(food.name)?T.success:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:isFoodLogged(food.name)?16:22,fontWeight:900}}>{isFoodLogged(food.name)?"✓":"+"}</button>
                 </div>
               ))
             )}
@@ -735,15 +777,76 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
             <input value={searchQ} onChange={e=>handleSearch(e.target.value)} placeholder="e.g. banana, dal, paneer..."
               style={{width:"100%",padding:"13px 16px",borderRadius:14,border:`1px solid ${T.border}`,fontSize:15,fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text,marginBottom:12,boxSizing:"border-box"}}/>
             {searchRes.map((food,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:isFoodLogged(food.name)?T.accentDim:T.surfaceAlt,borderRadius:14,padding:"12px 14px",marginBottom:8,border:`1px solid ${isFoodLogged(food.name)?T.accent:T.border}`,boxShadow:isFoodLogged(food.name)?`0 0 12px ${T.accentDim}`:"none",transition:"all 0.2s ease"}}>
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,background:isFoodLogged(food.name)?"#0c2a0c":T.surfaceAlt,borderRadius:14,padding:"12px 14px",marginBottom:8,border:`1px solid ${isFoodLogged(food.name)?"#22c55e":T.border}`,boxShadow:isFoodLogged(food.name)?"0 2px 12px #22c55e20":"none",transition:"all 0.2s ease"}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:4}}>{food.name}</div>
                   <div style={{display:"flex",gap:10,fontSize:11}}><span style={{color:T.accent,fontWeight:700}}>{food.kcal} kcal</span><span style={{color:"#22c55e"}}>{food.protein}g P</span></div>
                 </div>
-                <button type="button" onClick={()=>openQty(food.name,food.kcal,food.protein,food.carbs,food.fat)} style={{width:48,height:48,borderRadius:12,background:isFoodLogged(food.name)?T.success:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:isFoodLogged(food.name)?16:22,fontWeight:900}}>{isFoodLogged(food.name)?"✓":"+"}</button>
+                <button type="button" onClick={()=>openQty(food.name,food.kcal,food.protein,food.carbs,food.fat,food.defaultQty||100,food.unit||"g")} style={{width:48,height:48,borderRadius:12,background:isFoodLogged(food.name)?T.success:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:isFoodLogged(food.name)?16:22,fontWeight:900}}>{isFoodLogged(food.name)?"✓":"+"}</button>
               </div>
             ))}
             {searchQ&&searchRes.length===0&&<div style={{textAlign:"center",padding:"24px",color:T.textSub,fontSize:13}}>No results. Try Manual.</div>}
+          </div>
+        )}
+        {/* PLAN */}
+        {subTab==="plan"&&(
+          <div>
+            <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div>
+                  <Lbl color={T.accent} style={{marginBottom:4}}>DAILY PLANNER</Lbl>
+                  <div style={{fontSize:12,color:T.textSub}}>Plan your day before you eat</div>
+                </div>
+                {planItems.length>0&&<button type="button" onClick={()=>{setPlanItems([]);setPlanSearch("");setPlanSearchRes([]);}} style={{padding:"6px 14px",background:"#ff4d4d15",color:T.danger,border:"1px solid #ff4d4d30",borderRadius:10,cursor:"pointer",fontSize:12,fontWeight:700}}>Clear all</button>}
+              </div>
+              {planItems.length>0&&(()=>{
+                const pt=planItems.reduce((acc,f)=>({kcal:acc.kcal+(Number(f.kcal)||0),protein:acc.protein+(Number(f.protein)||0),carbs:acc.carbs+(Number(f.carbs)||0),fat:acc.fat+(Number(f.fat)||0)}),{kcal:0,protein:0,carbs:0,fat:0});
+                return(
+                  <div style={{marginBottom:14}}>
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:10}}>
+                      {[["Kcal",Math.round(pt.kcal),TARGETS.kcal,T.accent],["Protein",Math.round(pt.protein)+"g",TARGETS.protein+"g","#22c55e"],["Carbs",Math.round(pt.carbs)+"g",TARGETS.carbs+"g","#4facfe"],["Fat",Math.round(pt.fat)+"g",TARGETS.fat+"g","#f59e0b"]].map(([l,v,t,c])=>(
+                        <div key={l} style={{textAlign:"center",background:T.surfaceAlt,borderRadius:12,padding:"10px 4px",border:`1px solid ${T.border}`}}>
+                          <div style={{fontSize:16,fontWeight:800,color:c}}>{v}</div>
+                          <div style={{fontSize:8,color:T.textMuted,marginTop:2}}>/ {t}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <MiniBar value={pt.kcal} max={TARGETS.kcal} color={T.accent} height={4}/>
+                  </div>
+                );
+              })()}
+              <input value={planSearch} onChange={e=>{setPlanSearch(e.target.value);setPlanSearchRes(e.target.value.trim()?FOOD_DB.filter(f=>f.name.toLowerCase().includes(e.target.value.toLowerCase())).slice(0,6):[]);}} placeholder="Search to add food to plan..."
+                style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text,marginTop:6,marginBottom:8,boxSizing:"border-box"}}/>
+              {planSearchRes.map((food,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:10,background:T.surfaceAlt,borderRadius:12,padding:"10px 14px",marginBottom:6,border:`1px solid ${T.border}`}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600,color:T.text}}>{food.name}</div>
+                    <div style={{fontSize:11,marginTop:2}}><span style={{color:T.accent,fontWeight:700}}>{food.kcal} kcal</span><span style={{color:"#22c55e",marginLeft:8}}>{food.protein}g P</span></div>
+                  </div>
+                  <button type="button" onClick={()=>{setPlanItems(prev=>[...prev,{...food,id:"plan_"+Date.now()+"_"+i}]);setPlanSearch("");setPlanSearchRes([]);}} style={{width:40,height:40,borderRadius:10,background:T.accent,color:"#000",border:"none",cursor:"pointer",fontSize:20,fontWeight:900}}>+</button>
+                </div>
+              ))}
+            </div>
+            {planItems.length>0&&(
+              <div>
+                <Lbl color={T.accent} style={{marginBottom:10}}>PLANNED ITEMS</Lbl>
+                {planItems.map((item,i)=>(
+                  <div key={item.id||i} style={{display:"flex",alignItems:"center",gap:10,background:T.surface,borderRadius:14,padding:"12px 16px",marginBottom:8,border:`1px solid ${T.border}`}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:T.text}}>{item.name}</div>
+                      <div style={{fontSize:11,color:T.textSub,marginTop:3}}>
+                        <span style={{color:T.accent}}>{Math.round(item.kcal)} kcal</span> · <span style={{color:"#22c55e"}}>{Math.round((item.protein||0)*10)/10}g P</span> · <span style={{color:"#4facfe"}}>{Math.round((item.carbs||0)*10)/10}g C</span> · <span style={{color:"#f59e0b"}}>{Math.round((item.fat||0)*10)/10}g F</span>
+                      </div>
+                    </div>
+                    <button type="button" onClick={()=>setPlanItems(prev=>prev.filter((_,j)=>j!==i))} style={{width:30,height:30,borderRadius:"50%",background:"#ff4d4d15",color:T.danger,border:"1px solid #ff4d4d30",cursor:"pointer",fontSize:14}}>✕</button>
+                    <button type="button" onClick={()=>{onAdd({id:Date.now()+"_plan_"+i,...item});showToast("✅ "+item.name+" logged!");}} style={{padding:"8px 14px",background:T.accentDim,color:T.accent,border:`1px solid ${T.accentMid}`,borderRadius:10,cursor:"pointer",fontSize:12,fontWeight:700,flexShrink:0}}>Log</button>
+                  </div>
+                ))}
+                <button type="button" onClick={()=>{planItems.forEach((item,i)=>onAdd({id:Date.now()+"_planAll_"+i,...item}));showToast("✅ All "+planItems.length+" items logged!");setPlanItems([]);}} style={{width:"100%",padding:"15px",background:T.accent,color:"#000",border:"none",borderRadius:14,fontSize:14,fontWeight:700,cursor:"pointer",marginTop:4}}>
+                  + Log All {planItems.length} Items to Today
+                </button>
+              </div>
+            )}
           </div>
         )}
         {/* MANUAL */}
@@ -819,25 +922,32 @@ function LogTab({ foodLog, totals, onAdd, onRemove, myFoods, onSaveFood, onDelet
     </div>
   );
 }
-
 // ── Train Tab ─────────────────────────────────────────────────────────────────
 function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, globalDate, onDateChange, T }) {
-  const [subTab,setSubTab]=useState("log"), [mode,setMode]=useState(null), [sessionName,setSessionName]=useState(""), [exercises,setExercises]=useState([]), [cardioData,setCardioData]=useState({type:"Incline Walk",duration:"",distance:"",notes:""}), [customEx,setCustomEx]=useState(""), [expandedSession,setExpandedSession]=useState(null), [progressEx,setProgressEx]=useState(""), [toast,setToast]=useState(""), [saving,setSaving]=useState(false), [autoSaved,setAutoSaved]=useState(false), [extraBlocks,setExtraBlocks]=useState([]), [showExtraBlock,setShowExtraBlock]=useState(false), [extraCardio,setExtraCardio]=useState({type:"Incline Walk",duration:"",distance:"",notes:""});
+  const [subTab,setSubTab]=useState("log"), [building,setBuilding]=useState(false), [exerciseType,setExerciseType]=useState("weights"), [sessionName,setSessionName]=useState(""), [exercises,setExercises]=useState([]), [customEx,setCustomEx]=useState(""), [expandedSession,setExpandedSession]=useState(null), [progressEx,setProgressEx]=useState(""), [toast,setToast]=useState(""), [saving,setSaving]=useState(false), [autoSaved,setAutoSaved]=useState(false), [cardioBlocks,setCardioBlocks]=useState([]), [showAddCardio,setShowAddCardio]=useState(false), [newCardio,setNewCardio]=useState({type:"Incline Walk",duration:"",distance:"",notes:""}), [showNotes,setShowNotes]=useState({});
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(""),2500);}
-  const exDb=mode==="weights"?GYM_EXERCISES:mode==="bodyweight"?BW_EXERCISES:{};
-  function addExercise(name){if(!name.trim()||exercises.find(e=>e.name===name))return;setExercises(prev=>[...prev,{name,sets:[{reps:"",weight:""}]}]);setCustomEx("");}
+  const exDb=exerciseType==="weights"?GYM_EXERCISES:BW_EXERCISES;
+  function addExercise(name){if(!name.trim()||exercises.find(e=>e.name===name))return;setExercises(prev=>[...prev,{name,sets:[{reps:"",weight:""}],notes:""}]);setCustomEx("");}
   function addSet(i){setExercises(prev=>prev.map((e,ei)=>ei===i?{...e,sets:[...e.sets,{reps:"",weight:""}]}:e));}
   function removeSet(i,si){setExercises(prev=>prev.map((e,ei)=>ei===i?{...e,sets:e.sets.filter((_,s)=>s!==si)}:e));}
   function updateSet(i,si,field,val){setExercises(prev=>prev.map((e,ei)=>ei===i?{...e,sets:e.sets.map((s,s2)=>s2===si?{...s,[field]:val}:s)}:e));setAutoSaved(false);clearTimeout(window._ast);window._ast=setTimeout(()=>setAutoSaved(true),800);}
+  function adjustReps(ei,si,delta){const cur=Number(exercises[ei]?.sets[si]?.reps)||0;updateSet(ei,si,"reps",String(Math.max(0,cur+delta)));}
+  function adjustWeight(ei,si,delta){const cur=Number(exercises[ei]?.sets[si]?.weight)||0;updateSet(ei,si,"weight",String(Math.max(0,Math.round((cur+delta)*4)/4)));}
+  function updateExerciseNote(i,note){setExercises(prev=>prev.map((e,ei)=>ei===i?{...e,notes:note}:e));}
   function removeExercise(i){setExercises(prev=>prev.filter((_,ei)=>ei!==i));}
-  function saveExtraCardio(){if(!extraCardio.duration)return;setExtraBlocks(prev=>[...prev,{type:"cardio",cardioData:{...extraCardio}}]);setExtraCardio({type:"Incline Walk",duration:"",distance:"",notes:""});setShowExtraBlock(false);}
+  function startSession(){setBuilding(true);}
+  function cancelSession(){setBuilding(false);setSessionName("");setExercises([]);setCardioBlocks([]);setShowAddCardio(false);setNewCardio({type:"Incline Walk",duration:"",distance:"",notes:""});setShowNotes({});}
+  function addCardioBlock(){if(!newCardio.duration)return;setCardioBlocks(prev=>[...prev,{type:"cardio",cardioData:{...newCardio}}]);setNewCardio({type:"Incline Walk",duration:"",distance:"",notes:""});setShowAddCardio(false);}
   async function saveSession(){
-    if(mode==="cardio"&&!cardioData.duration)return;if((mode==="weights"||mode==="bodyweight")&&exercises.length===0)return;
+    if(exercises.length===0&&cardioBlocks.length===0)return;
     setSaving(true);const id="session_"+Date.now();
-    const totalVolume=mode==="weights"?exercises.reduce((s,ex)=>s+ex.sets.reduce((s2,st)=>s2+((Number(st.reps)||0)*(Number(st.weight)||0)),0),0):0;
-    const session={id,date:globalDate,mode,sessionName:sessionName||(mode==="cardio"?cardioData.type:"Session"),exercises:mode!=="cardio"?exercises:[],cardioData:mode==="cardio"?cardioData:null,totalVolume,extraBlocks,savedAt:new Date().toISOString()};
+    const inferredMode=exercises.length>0?exerciseType:"cardio";
+    const totalVolume=exerciseType==="weights"?exercises.reduce((s,ex)=>s+ex.sets.reduce((s2,st)=>s2+((Number(st.reps)||0)*(Number(st.weight)||0)),0),0):0;
+    const primaryCardio=exercises.length===0&&cardioBlocks.length>0?cardioBlocks[0].cardioData:null;
+    const savedExtraBlocks=exercises.length===0?cardioBlocks.slice(1):cardioBlocks;
+    const session={id,date:globalDate,mode:inferredMode,sessionName:sessionName||(inferredMode==="cardio"&&primaryCardio?primaryCardio.type:"Session"),exercises,cardioData:primaryCardio,totalVolume,extraBlocks:savedExtraBlocks,savedAt:new Date().toISOString()};
     await onSaveSession(session);showToast("✅ Session saved!");
-    setMode(null);setSessionName("");setExercises([]);setCardioData({type:"Incline Walk",duration:"",distance:"",notes:""});setExtraBlocks([]);setShowExtraBlock(false);
+    cancelSession();
     setSaving(false);setSubTab("history");
   }
   function getProgressData(exName){return sessions.filter(s=>s.exercises&&s.exercises.find(e=>e.name===exName)).map(s=>{const ex=s.exercises.find(e=>e.name===exName);const tw=Math.max(...ex.sets.map(st=>Number(st.weight)||0));const tr=ex.sets.find(st=>Number(st.weight)===tw)?.reps||0;return{date:fmtDate(s.date),weight:tw,reps:Number(tr)};}).slice(-12);}
@@ -864,147 +974,151 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
         {/* LOG SESSION */}
         {subTab==="log"&&(
           <div>
-            {!mode?(
+            {!building?(
               <div>
                 <div style={{background:T.surface,borderRadius:20,padding:"16px 18px",marginBottom:10,border:`1px solid ${T.border}`}}>
                   <Lbl color={T.accent} style={{marginBottom:6}}>LOGGING FOR</Lbl>
-                  <div style={{fontSize:17,fontWeight:700,color:globalDate===getToday()?T.accent:"#f59e0b"}}>{globalDate===getToday()?"Today — "+fmtDate(globalDate):fmtDateLong(globalDate)}</div>
+                  <div style={{fontSize:17,fontWeight:700,color:globalDate===getToday()?T.accent:"#f59e0b",marginBottom:8}}>{globalDate===getToday()?"Today — "+fmtDate(globalDate):fmtDateLong(globalDate)}</div>
+                  {sessions.filter(s=>s.date===globalDate).map(s=>(
+                    <div key={s.id} style={{fontSize:12,color:T.success,marginTop:4,fontWeight:600}}>✅ {s.sessionName}</div>
+                  ))}
                 </div>
-                <div style={{background:T.surface,borderRadius:20,padding:"18px",border:`1px solid ${T.border}`}}>
-                  <Lbl color={T.accent} style={{marginBottom:14}}>CHOOSE TYPE</Lbl>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-                    {[["🏋️","Weights","weights","Gym"],["💪","Bodyweight","bodyweight","Home"],["🏃","Cardio","cardio","Cardio"]].map(([emoji,label,val,sub])=>(
-                      <button key={val} type="button" onClick={()=>setMode(val)} style={{padding:"20px 8px",borderRadius:16,border:`1px solid ${T.border}`,background:T.surfaceAlt,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
-                        <span style={{fontSize:30}}>{emoji}</span>
-                        <span style={{fontSize:13,fontWeight:700,color:T.text}}>{label}</span>
-                        <span style={{fontSize:10,color:T.textMuted}}>{sub}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <button type="button" onClick={startSession} style={{width:"100%",padding:"22px",background:T.accent,color:"#000",border:"none",borderRadius:18,fontSize:17,fontWeight:700,cursor:"pointer",letterSpacing:0.3}}>
+                  + Start Session
+                </button>
               </div>
             ):(
               <div>
+                {/* Session header */}
                 <div style={{background:T.surface,borderRadius:20,padding:"16px 18px",marginBottom:10,border:`1px solid ${T.border}`}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-                    <div style={{fontSize:15,fontWeight:700,color:T.text}}>{mode==="weights"?"🏋️ Weights":mode==="bodyweight"?"💪 Bodyweight":"🏃 Cardio"}</div>
-                    <button type="button" onClick={()=>{setMode(null);setExercises([]);}} style={{padding:"6px 14px",background:T.surfaceAlt,border:`1px solid ${T.border}`,color:T.textSub,borderRadius:8,cursor:"pointer",fontSize:12}}>✕ Cancel</button>
+                  <div style={{display:"flex",gap:8,marginBottom:12}}>
+                    {[["🏋️ Gym","weights"],["💪 Bodyweight","bodyweight"]].map(([label,type])=>(
+                      <button key={type} type="button" onClick={()=>setExerciseType(type)} style={{flex:1,padding:"10px",borderRadius:12,border:`1px solid ${exerciseType===type?T.accent:T.border}`,background:exerciseType===type?T.accentDim:T.surfaceAlt,color:exerciseType===type?T.accent:T.textSub,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                        {label}
+                      </button>
+                    ))}
+                    <button type="button" onClick={cancelSession} style={{padding:"10px 16px",background:"#ff4d4d15",color:T.danger,border:"1px solid #ff4d4d30",borderRadius:12,cursor:"pointer",fontSize:13,fontWeight:700}}>✕</button>
                   </div>
-                  <input value={sessionName} onChange={e=>setSessionName(e.target.value)} placeholder={mode==="cardio"?"Session name (optional)":"e.g. Chest & Triceps"}
+                  <input value={sessionName} onChange={e=>setSessionName(e.target.value)} placeholder={exerciseType==="weights"?"e.g. Chest & Triceps":"e.g. Upper Body"}
                     style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1px solid ${T.border}`,fontSize:14,fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text,boxSizing:"border-box"}}/>
                 </div>
-                {mode==="cardio"&&(
-                  <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
-                    <Lbl color={T.accent} style={{marginBottom:12}}>CARDIO DETAILS</Lbl>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14}}>
-                      {CARDIO_TYPES.map(t=>(
-                        <button key={t} type="button" onClick={()=>setCardioData(p=>({...p,type:t}))} style={{padding:"8px 16px",borderRadius:99,border:`1px solid ${cardioData.type===t?T.accent:T.border}`,background:cardioData.type===t?T.accentDim:T.surfaceAlt,color:cardioData.type===t?T.accent:T.textSub,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t}</button>
-                      ))}
+
+                {/* Exercise picker */}
+                <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
+                  <Lbl color={T.accent} style={{marginBottom:14}}>ADD EXERCISE</Lbl>
+                  {Object.entries(exDb).map(([group,exList])=>(
+                    <div key={group} style={{marginBottom:12}}>
+                      <div style={{fontSize:10,color:T.textMuted,fontFamily:"monospace",letterSpacing:2,marginBottom:8}}>{group.toUpperCase()}</div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                        {exList.map(ex=>{const added=!!exercises.find(e=>e.name===ex);return(
+                          <button key={ex} type="button" onClick={()=>addExercise(ex)} disabled={added}
+                            style={{padding:"7px 14px",borderRadius:99,border:`1px solid ${added?T.accent:T.border}`,background:added?T.accentDim:T.surfaceAlt,color:added?T.accent:T.textSub,fontSize:12,fontWeight:600,cursor:added?"default":"pointer"}}>
+                            {ex} {added?"✓":"+"}
+                          </button>
+                        );})}
+                      </div>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-                      {[["DURATION (mins) *","duration",""],["DISTANCE (km)","distance","0.1"]].map(([l,k,step])=>(
-                        <div key={k}>
-                          <div style={{fontSize:10,color:T.textMuted,fontFamily:"monospace",marginBottom:5,letterSpacing:1}}>{l}</div>
-                          <input type="number" step={step||1} value={cardioData[k]} onChange={e=>setCardioData(p=>({...p,[k]:e.target.value}))} placeholder="0"
-                            style={{width:"100%",padding:"12px",borderRadius:12,border:`1px solid ${T.border}`,fontSize:18,fontWeight:700,textAlign:"center",fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text,boxSizing:"border-box"}}/>
+                  ))}
+                  <div style={{display:"flex",gap:8,marginTop:10}}>
+                    <input value={customEx} onChange={e=>setCustomEx(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addExercise(customEx)} placeholder="Custom exercise..."
+                      style={{flex:1,padding:"11px 14px",borderRadius:12,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text}}/>
+                    <button type="button" onClick={()=>addExercise(customEx)} style={{padding:"11px 18px",background:T.accent,color:"#000",border:"none",borderRadius:12,cursor:"pointer",fontSize:13,fontWeight:700}}>Add</button>
+                  </div>
+                </div>
+
+                {/* Exercise cards with +/- steppers */}
+                {exercises.map((ex,ei)=>(
+                  <div key={ei} style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+                      <div style={{fontSize:15,fontWeight:700,color:T.text,flex:1}}>{ex.name}</div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button type="button" onClick={()=>setShowNotes(p=>({...p,[ei]:!p[ei]}))} style={{padding:"6px 12px",background:showNotes[ei]?"#f59e0b20":T.surfaceAlt,color:showNotes[ei]?"#f59e0b":T.textMuted,border:`1px solid ${showNotes[ei]?"#f59e0b50":T.border}`,borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:700}} title="Add notes">📝</button>
+                        <button type="button" onClick={()=>removeExercise(ei)} style={{width:32,height:32,borderRadius:"50%",background:"#ff4d4d15",color:T.danger,border:"1px solid #ff4d4d30",cursor:"pointer",fontSize:14}}>✕</button>
+                      </div>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:exerciseType==="weights"?"36px 1fr 1fr 36px":"36px 1fr 36px",gap:6,marginBottom:8}}>
+                      <div/>
+                      <div style={{fontSize:10,color:"#22c55e",fontFamily:"monospace",fontWeight:700,textAlign:"center",letterSpacing:1}}>REPS</div>
+                      {exerciseType==="weights"&&<div style={{fontSize:10,color:"#4facfe",fontFamily:"monospace",fontWeight:700,textAlign:"center",letterSpacing:1}}>KG</div>}
+                      <div/>
+                    </div>
+                    {ex.sets.map((set,si)=>(
+                      <div key={si} style={{display:"grid",gridTemplateColumns:exerciseType==="weights"?"36px 1fr 1fr 36px":"36px 1fr 36px",gap:6,marginBottom:8,alignItems:"center"}}>
+                        <div style={{textAlign:"center",fontSize:13,color:T.textMuted,fontWeight:700,lineHeight:"56px"}}>{si+1}</div>
+                        {/* Reps stepper */}
+                        <div style={{display:"flex",alignItems:"center",background:"#22c55e0d",borderRadius:14,border:"1.5px solid #22c55e40",overflow:"hidden",height:56}}>
+                          <button type="button" onPointerDown={()=>adjustReps(ei,si,-1)} style={{width:40,height:"100%",border:"none",background:"transparent",color:"#22c55e",fontSize:22,fontWeight:900,cursor:"pointer",flexShrink:0,lineHeight:1}}>−</button>
+                          <input type="number" value={set.reps} onChange={e=>updateSet(ei,si,"reps",e.target.value)} placeholder="0" style={{flex:1,height:"100%",border:"none",fontSize:22,fontWeight:800,textAlign:"center",fontFamily:"inherit",outline:"none",background:"transparent",color:T.text,minWidth:0}}/>
+                          <button type="button" onPointerDown={()=>adjustReps(ei,si,1)} style={{width:40,height:"100%",border:"none",background:"transparent",color:"#22c55e",fontSize:22,fontWeight:900,cursor:"pointer",flexShrink:0,lineHeight:1}}>+</button>
                         </div>
-                      ))}
-                    </div>
-                    {cardioData.duration&&cardioData.distance&&(
-                      <div style={{background:T.accentDim,borderRadius:12,padding:"10px 14px",fontSize:13,color:T.accent,fontWeight:700,border:`1px solid ${T.accentMid}`}}>
-                        Avg pace: {(Number(cardioData.duration)/Number(cardioData.distance)).toFixed(1)} min/km
+                        {/* Weight stepper */}
+                        {exerciseType==="weights"&&(
+                          <div style={{display:"flex",alignItems:"center",background:"#4facfe0d",borderRadius:14,border:"1.5px solid #4facfe40",overflow:"hidden",height:56}}>
+                            <button type="button" onPointerDown={()=>adjustWeight(ei,si,-2.5)} style={{width:40,height:"100%",border:"none",background:"transparent",color:"#4facfe",fontSize:22,fontWeight:900,cursor:"pointer",flexShrink:0,lineHeight:1}}>−</button>
+                            <input type="number" step="0.5" value={set.weight} onChange={e=>updateSet(ei,si,"weight",e.target.value)} placeholder="0" style={{flex:1,height:"100%",border:"none",fontSize:20,fontWeight:800,textAlign:"center",fontFamily:"inherit",outline:"none",background:"transparent",color:T.text,minWidth:0}}/>
+                            <button type="button" onPointerDown={()=>adjustWeight(ei,si,2.5)} style={{width:40,height:"100%",border:"none",background:"transparent",color:"#4facfe",fontSize:22,fontWeight:900,cursor:"pointer",flexShrink:0,lineHeight:1}}>+</button>
+                          </div>
+                        )}
+                        <button type="button" onClick={()=>removeSet(ei,si)} style={{width:36,height:36,borderRadius:10,background:"#ff4d4d15",color:T.danger,border:"1px solid #ff4d4d30",cursor:"pointer",fontSize:16,alignSelf:"center"}}>✕</button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={()=>addSet(ei)} style={{width:"100%",padding:"10px",background:T.surfaceAlt,border:`1px solid ${T.border}`,borderRadius:10,cursor:"pointer",fontSize:13,color:T.textSub,fontWeight:600,marginTop:4}}>+ Add Set</button>
+                    {showNotes[ei]&&(
+                      <div style={{marginTop:12}}>
+                        <div style={{fontSize:10,color:"#f59e0b",fontFamily:"monospace",letterSpacing:1,marginBottom:6}}>NOTES</div>
+                        <textarea value={ex.notes||""} onChange={e=>updateExerciseNote(ei,e.target.value)} placeholder="e.g. felt strong, speed 8.5 incline 6, superset with dips, form note..."
+                          style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"1px solid #f59e0b40",fontSize:12,fontFamily:"inherit",outline:"none",background:"#f59e0b08",color:T.text,resize:"vertical",minHeight:60,boxSizing:"border-box",lineHeight:1.6}}/>
                       </div>
                     )}
                   </div>
-                )}
-                {(mode==="weights"||mode==="bodyweight")&&(
-                  <div>
-                    <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
-                      <Lbl color={T.accent} style={{marginBottom:14}}>ADD EXERCISE</Lbl>
-                      {Object.entries(exDb).map(([group,exList])=>(
-                        <div key={group} style={{marginBottom:12}}>
-                          <div style={{fontSize:10,color:T.textMuted,fontFamily:"monospace",letterSpacing:2,marginBottom:8}}>{group.toUpperCase()}</div>
-                          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                            {exList.map(ex=>{const added=!!exercises.find(e=>e.name===ex);return(
-                              <button key={ex} type="button" onClick={()=>addExercise(ex)} disabled={added}
-                                style={{padding:"7px 14px",borderRadius:99,border:`1px solid ${added?T.accent:T.border}`,background:added?T.accentDim:T.surfaceAlt,color:added?T.accent:T.textSub,fontSize:12,fontWeight:600,cursor:added?"default":"pointer"}}>
-                                {ex} {added?"✓":"+"}
-                              </button>
-                            );})}
-                          </div>
-                        </div>
-                      ))}
-                      <div style={{display:"flex",gap:8,marginTop:10}}>
-                        <input value={customEx} onChange={e=>setCustomEx(e.target.value)} placeholder="Custom exercise..."
-                          style={{flex:1,padding:"11px 14px",borderRadius:12,border:`1px solid ${T.border}`,fontSize:13,fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text}}/>
-                        <button type="button" onClick={()=>addExercise(customEx)} style={{padding:"11px 18px",background:T.accent,color:"#000",border:"none",borderRadius:12,cursor:"pointer",fontSize:13,fontWeight:700}}>Add</button>
+                ))}
+
+                {/* Cardio section */}
+                <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:"1px solid #f59e0b30"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:cardioBlocks.length>0||showAddCardio?12:0}}>
+                    <Lbl color="#f59e0b">CARDIO</Lbl>
+                    <button type="button" onClick={()=>setShowAddCardio(!showAddCardio)} style={{padding:"8px 16px",background:showAddCardio?"#f59e0b20":T.surfaceAlt,color:"#f59e0b",border:"1px solid #f59e0b40",borderRadius:10,cursor:"pointer",fontSize:12,fontWeight:700}}>
+                      {showAddCardio?"✕ Cancel":"+ Add Cardio"}
+                    </button>
+                  </div>
+                  {cardioBlocks.map((block,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",background:"#22c55e0d",borderRadius:12,padding:"12px 14px",marginBottom:8,border:"1px solid #22c55e40"}}>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:T.success}}>✅ {block.cardioData?.type}</div>
+                        <div style={{fontSize:11,color:T.textSub,marginTop:2}}>{block.cardioData?.duration} mins{block.cardioData?.distance?" · "+block.cardioData.distance+"km":""}</div>
+                        {block.cardioData?.notes&&<div style={{fontSize:11,color:T.textMuted,marginTop:3,fontStyle:"italic"}}>📝 {block.cardioData.notes}</div>}
                       </div>
+                      <button type="button" onClick={()=>setCardioBlocks(prev=>prev.filter((_,j)=>j!==i))} style={{width:28,height:28,borderRadius:"50%",background:"#ff4d4d15",color:T.danger,border:"1px solid #ff4d4d30",cursor:"pointer",fontSize:13,flexShrink:0}}>✕</button>
                     </div>
-                    {exercises.map((ex,ei)=>(
-                      <div key={ei} style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:`1px solid ${T.border}`}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-                          <div style={{fontSize:15,fontWeight:700,color:T.text}}>{ex.name}</div>
-                          <button type="button" onClick={()=>removeExercise(ei)} style={{width:30,height:30,borderRadius:"50%",background:"#ff4d4d15",color:T.danger,border:`1px solid #ff4d4d30`,cursor:"pointer",fontSize:14}}>✕</button>
-                        </div>
-                        <div style={{display:"grid",gridTemplateColumns:mode==="weights"?"48px 1fr 1fr 48px":"48px 1fr 48px",gap:8,marginBottom:8}}>
-                          <div/>
-                          <div style={{fontSize:11,color:"#22c55e",fontFamily:"monospace",fontWeight:700,textAlign:"center",letterSpacing:1}}>REPS</div>
-                          {mode==="weights"&&<div style={{fontSize:11,color:"#4facfe",fontFamily:"monospace",fontWeight:700,textAlign:"center",letterSpacing:1}}>KG</div>}
-                          <div/>
-                        </div>
-                        {ex.sets.map((set,si)=>(
-                          <div key={si} style={{display:"grid",gridTemplateColumns:mode==="weights"?"48px 1fr 1fr 48px":"48px 1fr 48px",gap:8,marginBottom:8}}>
-                            <div style={{textAlign:"center",fontSize:16,color:T.textMuted,lineHeight:"52px",fontWeight:700}}>{si+1}</div>
-                            <input type="number" value={set.reps} onChange={e=>updateSet(ei,si,"reps",e.target.value)} placeholder="0"
-                              style={{padding:"14px 8px",borderRadius:12,border:"1px solid #22c55e40",fontSize:20,fontWeight:800,textAlign:"center",fontFamily:"inherit",outline:"none",background:"#22c55e10",color:T.text,height:52,boxSizing:"border-box"}}/>
-                            {mode==="weights"&&(
-                              <input type="number" step="0.5" value={set.weight} onChange={e=>updateSet(ei,si,"weight",e.target.value)} placeholder="0"
-                                style={{padding:"14px 8px",borderRadius:12,border:"1px solid #4facfe40",fontSize:20,fontWeight:800,textAlign:"center",fontFamily:"inherit",outline:"none",background:"#4facfe10",color:T.text,height:52,boxSizing:"border-box"}}/>
-                            )}
-                            <button type="button" onClick={()=>removeSet(ei,si)} style={{width:48,height:52,borderRadius:12,background:"#ff4d4d15",color:T.danger,border:"1px solid #ff4d4d30",cursor:"pointer",fontSize:18}}>✕</button>
+                  ))}
+                  {showAddCardio&&(
+                    <div style={{background:T.surfaceAlt,borderRadius:14,padding:14,border:`1px solid ${T.border}`}}>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
+                        {CARDIO_TYPES.map(t=>(
+                          <button key={t} type="button" onClick={()=>setNewCardio(p=>({...p,type:t}))} style={{padding:"7px 14px",borderRadius:99,border:`1px solid ${newCardio.type===t?"#f59e0b":T.border}`,background:newCardio.type===t?"#f59e0b20":T.surface,color:newCardio.type===t?"#f59e0b":T.textSub,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t}</button>
+                        ))}
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                        {[["DURATION (mins) *","duration"],["DISTANCE (km)","distance"]].map(([l,k])=>(
+                          <div key={k}>
+                            <div style={{fontSize:10,color:T.textMuted,fontFamily:"monospace",marginBottom:5}}>{l}</div>
+                            <input type="number" value={newCardio[k]||""} onChange={e=>setNewCardio(p=>({...p,[k]:e.target.value}))} placeholder="0"
+                              style={{width:"100%",padding:"12px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:18,fontWeight:700,textAlign:"center",fontFamily:"inherit",outline:"none",background:T.surface,color:T.text,boxSizing:"border-box"}}/>
                           </div>
                         ))}
-                        <button type="button" onClick={()=>addSet(ei)} style={{width:"100%",padding:"10px",background:T.surfaceAlt,border:`1px solid ${T.border}`,borderRadius:12,cursor:"pointer",fontSize:13,color:T.textSub,fontWeight:600,marginTop:4}}>+ Add Set</button>
                       </div>
-                    ))}
-                  </div>
-                )}
-                {showExtraBlock&&(
-                  <div style={{background:T.surface,borderRadius:20,padding:"18px",marginBottom:10,border:"1px solid #f59e0b40"}}>
-                    <Lbl color="#f59e0b" style={{marginBottom:12}}>ADD CARDIO BLOCK</Lbl>
-                    <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
-                      {CARDIO_TYPES.map(t=>(
-                        <button key={t} type="button" onClick={()=>setExtraCardio(p=>({...p,type:t}))} style={{padding:"7px 14px",borderRadius:99,border:`1px solid ${extraCardio.type===t?"#f59e0b":T.border}`,background:extraCardio.type===t?"#f59e0b20":T.surfaceAlt,color:extraCardio.type===t?"#f59e0b":T.textSub,fontSize:12,fontWeight:600,cursor:"pointer"}}>{t}</button>
-                      ))}
+                      {newCardio.duration&&newCardio.distance&&<div style={{background:"#f59e0b15",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#f59e0b",fontWeight:700,border:"1px solid #f59e0b30",marginBottom:10}}>⚡ Avg pace: {(Number(newCardio.duration)/Number(newCardio.distance)).toFixed(1)} min/km</div>}
+                      <input value={newCardio.notes||""} onChange={e=>setNewCardio(p=>({...p,notes:e.target.value}))} placeholder="Notes: speed, incline, pace, how it felt..."
+                        style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:12,fontFamily:"inherit",outline:"none",background:T.surface,color:T.text,marginBottom:10,boxSizing:"border-box"}}/>
+                      <button type="button" onClick={addCardioBlock} disabled={!newCardio.duration} style={{width:"100%",padding:"12px",background:newCardio.duration?"#f59e0b":"#333",color:newCardio.duration?"#000":"#666",border:"none",borderRadius:10,cursor:newCardio.duration?"pointer":"not-allowed",fontSize:13,fontWeight:700}}>✅ Add Cardio Block</button>
                     </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
-                      {[["DURATION (mins) *","duration"],["DISTANCE (km)","distance"]].map(([l,k])=>(
-                        <div key={k}>
-                          <div style={{fontSize:10,color:T.textMuted,fontFamily:"monospace",marginBottom:5}}>{l}</div>
-                          <input type="number" value={extraCardio[k]} onChange={e=>setExtraCardio(p=>({...p,[k]:e.target.value}))} placeholder="0"
-                            style={{width:"100%",padding:"12px",borderRadius:10,border:`1px solid ${T.border}`,fontSize:18,fontWeight:700,textAlign:"center",fontFamily:"inherit",outline:"none",background:T.surfaceAlt,color:T.text,boxSizing:"border-box"}}/>
-                        </div>
-                      ))}
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                      <button type="button" onClick={saveExtraCardio} style={{padding:"12px",background:T.accent,color:"#000",border:"none",borderRadius:12,cursor:"pointer",fontSize:13,fontWeight:700}}>✅ Add Block</button>
-                      <button type="button" onClick={()=>setShowExtraBlock(false)} style={{padding:"12px",background:T.surfaceAlt,color:T.textSub,border:`1px solid ${T.border}`,borderRadius:12,cursor:"pointer",fontSize:13}}>Cancel</button>
-                    </div>
-                  </div>
-                )}
-                {extraBlocks.map((block,i)=>(
-                  <div key={i} style={{background:T.surface,borderRadius:16,padding:"14px 16px",marginBottom:8,border:"1px solid #22c55e40"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div><div style={{fontSize:12,fontWeight:700,color:T.success}}>✅ {block.cardioData?.type}</div><div style={{fontSize:11,color:T.textSub}}>{block.cardioData?.duration} mins{block.cardioData?.distance?" · "+block.cardioData.distance+"km":""}</div></div>
-                      <button type="button" onClick={()=>setExtraBlocks(prev=>prev.filter((_,j)=>j!==i))} style={{width:28,height:28,borderRadius:"50%",background:"#ff4d4d15",color:T.danger,border:"1px solid #ff4d4d30",cursor:"pointer",fontSize:13}}>✕</button>
-                    </div>
-                  </div>
-                ))}
-                {!showExtraBlock&&(mode==="weights"||mode==="bodyweight")&&(
-                  <button type="button" onClick={()=>setShowExtraBlock(true)} style={{width:"100%",padding:"12px",background:T.surfaceAlt,border:`1px solid ${T.border}`,borderRadius:14,fontSize:13,fontWeight:600,color:T.textSub,cursor:"pointer",marginBottom:10}}>+ Add Cardio Block</button>
-                )}
+                  )}
+                  {cardioBlocks.length===0&&!showAddCardio&&<div style={{fontSize:12,color:T.textMuted,textAlign:"center",padding:"8px 0"}}>No cardio — tap + Add Cardio above</div>}
+                </div>
+
                 {exercises.length>0&&<div style={{textAlign:"center",fontSize:11,color:autoSaved?T.success:T.textMuted,fontFamily:"monospace",marginBottom:10}}>{autoSaved?"✓ Progress recorded":"Recording..."}</div>}
-                <button type="button" onClick={saveSession} disabled={saving} style={{width:"100%",padding:"18px",background:saving?"#333":T.accent,color:saving?"#666":"#000",border:"none",borderRadius:16,fontSize:16,fontWeight:700,cursor:saving?"not-allowed":"pointer",marginBottom:20}}>
+
+                <button type="button" onClick={saveSession} disabled={saving||(exercises.length===0&&cardioBlocks.length===0)} style={{width:"100%",padding:"18px",background:(saving||(exercises.length===0&&cardioBlocks.length===0))?"#333":T.accent,color:(saving||(exercises.length===0&&cardioBlocks.length===0))?"#666":"#000",border:"none",borderRadius:16,fontSize:16,fontWeight:700,cursor:(saving||(exercises.length===0&&cardioBlocks.length===0))?"not-allowed":"pointer",marginBottom:20}}>
                   {saving?"Saving…":"✅ Save Session"}
                 </button>
               </div>
@@ -1041,7 +1155,8 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
                       ):(
                         session.exercises?.map((ex,i)=>(
                           <div key={i} style={{marginBottom:10,background:T.surfaceAlt,borderRadius:12,padding:"12px 14px",border:`1px solid ${T.border}`}}>
-                            <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:8}}>{ex.name}</div>
+                            <div style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:ex.notes?4:8}}>{ex.name}</div>
+                            {ex.notes&&<div style={{fontSize:11,color:"#f59e0b",fontStyle:"italic",marginBottom:8,lineHeight:1.5}}>📝 {ex.notes}</div>}
                             {ex.sets.map((set,si)=>(
                               <div key={si} style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
                                 <span style={{fontSize:12,color:T.textSub}}>Set {si+1}</span>
@@ -1107,7 +1222,6 @@ function TrainTab({ sessions, onSaveSession, onDeleteSession, weeklyData, global
     </div>
   );
 }
-
 // ── Body Tab ──────────────────────────────────────────────────────────────────
 function BodyTab({ weightLog, onAdd, photos, onAddPhoto, onDeletePhoto, bodyScanLog, onSaveScan, checkins, onSaveCheckin, T }) {
   const [bodyTab,setBodyTab]=useState("scan"), [weightInput,setWeightInput]=useState(""), [saved,setSaved]=useState(false), [uploading,setUploading]=useState(false), [viewPhoto,setViewPhoto]=useState(null), [photoNote,setPhotoNote]=useState(""), [checkin,setCheckin]=useState({energy:"3",sleep:"",stress:"3",soreness:"3",steps:"",notes:""}), [checkinSaved,setCheckinSaved]=useState(false);
@@ -1334,7 +1448,6 @@ function BodyTab({ weightLog, onAdd, photos, onAddPhoto, onDeletePhoto, bodyScan
     </div>
   );
 }
-
 // ── Supplements Tab ───────────────────────────────────────────────────────────
 function SuppsTab({ suppLog, onToggle, globalDate, onDateChange, T }) {
   const pct=Math.round((suppLog.length/SUPPLEMENTS.length)*100);
@@ -1372,7 +1485,6 @@ function SuppsTab({ suppLog, onToggle, globalDate, onDateChange, T }) {
     </div>
   );
 }
-
 // ── Settings Tab ──────────────────────────────────────────────────────────────
 function SettingsTab({ settings, onSave, T, accent }) {
   const [local,setLocal]=useState(settings), [saved,setSaved]=useState(false);
@@ -1419,14 +1531,11 @@ function SettingsTab({ settings, onSave, T, accent }) {
     </div>
   );
 }
-
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab,setTab]=useState("home"), [globalDate,setGlobalDate]=useState(getToday()), [foodLog,setFoodLog]=useState([]), [suppLog,setSuppLog]=useState([]), [weightLog,setWeightLog]=useState([]), [checkins,setCheckins]=useState([]), [photos,setPhotos]=useState([]), [weeklyData,setWeeklyData]=useState([]), [myFoods,setMyFoods]=useState([]), [meals,setMeals]=useState(DEFAULT_MEALS), [sessions,setSessions]=useState([]), [bodyScanLog,setBodyScanLog]=useState([]), [waterLog,setWaterLog]=useState(0), [settings,setSettings]=useState({accent:"orange"}), [ready,setReady]=useState(false);
-
   const accent=getAccent(settings.accent);
   const T=tokens(accent);
-
   useEffect(()=>{
     (async()=>{
       const today=getToday();
@@ -1447,7 +1556,6 @@ export default function App() {
       setWeeklyData(days); setReady(true);
     })();
   },[]);
-
   async function changeDate(date){setGlobalDate(date);const [fd,sl]=await Promise.all([fbGet("food",date),fbGet("supplements",date)]);setFoodLog(fd?.items||[]);setSuppLog(sl?.taken||[]);}
   async function addFood(item){const updated=[...foodLog,item];setFoodLog(updated);await fbSet("food",globalDate,{items:updated,date:globalDate});if(globalDate===getToday())setWeeklyData(prev=>prev.map(d=>d.date===globalDate?{...d,kcal:Math.round(updated.reduce((s,f)=>s+(Number(f.kcal)||0),0)),protein:Math.round(updated.reduce((s,f)=>s+(Number(f.protein)||0),0))}:d));}
   async function removeFood(id){const updated=foodLog.filter(f=>f.id!==id);setFoodLog(updated);await fbSet("food",globalDate,{items:updated,date:globalDate});}
@@ -1465,22 +1573,18 @@ export default function App() {
   async function logWater(glasses){setWaterLog(glasses);await fbSet("water",getToday(),{glasses,date:getToday()});}
   async function saveSettings(s){setSettings(s);await fbSet("data","settings",s);}
   function exportData(){const data={foodLog,suppLog,weightLog,checkins,myFoods,meals,sessions,bodyScanLog,exportedAt:new Date().toISOString()};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="fitness-hub-"+getToday()+".json";a.click();URL.revokeObjectURL(url);}
-
   const totals=foodLog.reduce((acc,f)=>({kcal:acc.kcal+(Number(f.kcal)||0),protein:acc.protein+(Number(f.protein)||0),carbs:acc.carbs+(Number(f.carbs)||0),fat:acc.fat+(Number(f.fat)||0)}),{kcal:0,protein:0,carbs:0,fat:0});
-
   if(!ready) return (
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",background:"#0a0a0a"}}>
       <div style={{fontSize:44,marginBottom:16}}>🏋️</div>
       <div style={{fontSize:12,color:"#444",fontFamily:"monospace",letterSpacing:3}}>LOADING...</div>
     </div>
   );
-
   const TABS=[{id:"home",label:"HOME",e:"🏠"},{id:"log",label:"LOG",e:"📝"},{id:"train",label:"TRAIN",e:"🏋️"},{id:"body",label:"BODY",e:"⚖️"},{id:"supps",label:"SUPPS",e:"💊"},{id:"settings",label:"SET",e:"⚙️"}];
-
   return (
     <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:T.bg,fontFamily:"Georgia,serif"}}>
       <div style={{paddingBottom:80}}>
-        {tab==="home"     &&<HomeTab     totals={totals} suppLog={suppLog} weightLog={weightLog} weeklyData={weeklyData} sessions={sessions} onExport={exportData} waterLog={waterLog} onLogWater={logWater} T={T}/>}
+        {tab==="home"     &&<HomeTab     totals={totals} foodLog={foodLog} suppLog={suppLog} weightLog={weightLog} weeklyData={weeklyData} sessions={sessions} onExport={exportData} waterLog={waterLog} onLogWater={logWater} T={T}/>}
         {tab==="log"      &&<LogTab      foodLog={foodLog} totals={totals} onAdd={addFood} onRemove={removeFood} myFoods={myFoods} onSaveFood={saveMyFood} onDeleteMyFood={deleteMyFood} meals={meals} onSaveMeals={saveMeals} globalDate={globalDate} onDateChange={changeDate} T={T}/>}
         {tab==="train"    &&<TrainTab    sessions={sessions} onSaveSession={saveSession} onDeleteSession={deleteSession} weeklyData={weeklyData} globalDate={globalDate} onDateChange={changeDate} T={T}/>}
         {tab==="body"     &&<BodyTab     weightLog={weightLog} onAdd={addWeight} photos={photos} onAddPhoto={addPhoto} onDeletePhoto={deletePhoto} bodyScanLog={bodyScanLog} onSaveScan={saveBodyScan} checkins={checkins} onSaveCheckin={saveCheckin} T={T}/>}
