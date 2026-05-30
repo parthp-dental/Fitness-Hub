@@ -53,7 +53,7 @@ const DEFAULT_MEALS = [
   {
     id: "breakfast",
     label: "Breakfast",
-    emoji: "",
+    emoji: "🌅",
     time: "7:00am",
     items: [
       {
@@ -150,7 +150,7 @@ const DEFAULT_MEALS = [
   {
     id: "dinner",
     label: "Dinner",
-    emoji: "",
+    emoji: "🌙",
     time: "6:00pm",
     items: [
       {
@@ -602,21 +602,21 @@ const SUPPLEMENTS = [
     id: "iq",
     label: "IQ Supplement",
     time: "Morning",
-    emoji: "",
+    emoji: "🧠",
     color: "#4facfe",
   },
   {
     id: "ashwa",
     label: "Ashwagandha KSM-66",
     time: "With Dinner",
-    emoji: "",
+    emoji: "🌿",
     color: "#22c55e",
   },
   {
     id: "mag",
     label: "Magnesium Glycinate",
     time: "Before Bed",
-    emoji: "",
+    emoji: "😴",
     color: "#a78bfa",
   },
 ];
@@ -1315,7 +1315,7 @@ function NutritionScanModal({ onConfirm, onClose, T }) {
                 }}
               >
                 {" "}
-                {scanning ? " Reading label..." : " Upload Label Photo"}{" "}
+                {scanning ? "🔍 Reading label..." : "📷 Upload Label Photo"}{" "}
               </div>{" "}
               <input
                 type="file"
@@ -1902,7 +1902,7 @@ function WeeklyAnalysisCard({ sessions, weeklyData, T }) {
           }}
         >
           {" "}
-          {copied ? "✅ Copied" : " Copy"}{" "}
+          {copied ? "✅ Copied" : "📋 Copy"}{" "}
         </button>{" "}
       </div>{" "}
       <div
@@ -2787,7 +2787,7 @@ function HomeTab({
                 }}
               >
                 {" "}
-                {i < waterLog ? "" : "○"}{" "}
+                {i < waterLog ? "💧" : "○"}{" "}
               </button>
             ))}{" "}
           </div>{" "}
@@ -2990,11 +2990,11 @@ function LogTab({
   }
   const tabs = [
     ["quick", "⚡ MEALS"],
-    ["log", " LOG (" + foodLog.length + ")"],
-    ["plan", " PLAN"],
+    ["log", "📋 LOG (" + foodLog.length + ")"],
+    ["plan", "📅 PLAN"],
     ["myfoods", "⭐ MY FOODS (" + myFoods.length + ")"],
-    ["history", " HISTORY (" + (foodHistory || []).length + ")"],
-    ["search", " SEARCH"],
+    ["history", "🕘 HISTORY (" + (foodHistory || []).length + ")"],
+    ["search", "🔍 SEARCH"],
     ["manual", "✏️ MANUAL"],
   ];
   const cleanLoggedName = (name) =>
@@ -4714,7 +4714,7 @@ function LogTab({
                 }}
               >
                 {" "}
-                <div style={{ fontSize: 44, marginBottom: 14 }}></div>{" "}
+                <div style={{ fontSize: 44, marginBottom: 14 }}>📋</div>{" "}
                 <div
                   style={{ fontSize: 15, fontWeight: 600, color: T.textSub }}
                 >
@@ -6132,7 +6132,7 @@ function TrainTab({
                   border: `1px solid ${T.border}`,
                 }}
               >
-                <div style={{ fontSize: 44, marginBottom: 14 }}>️</div>
+                <div style={{ fontSize: 44, marginBottom: 14 }}>🏋️</div>
                 <div
                   style={{ fontSize: 15, fontWeight: 600, color: T.textSub }}
                 >
@@ -6407,7 +6407,7 @@ function TrainTab({
                   border: `1px solid ${T.border}`,
                 }}
               >
-                <div style={{ fontSize: 44, marginBottom: 14 }}></div>
+                <div style={{ fontSize: 44, marginBottom: 14 }}>📈</div>
                 <div
                   style={{ fontSize: 15, fontWeight: 600, color: T.textSub }}
                 >
@@ -7816,7 +7816,7 @@ function BodyTab({
                   border: `1px solid ${T.border}`,
                 }}
               >
-                <div style={{ fontSize: 44, marginBottom: 12 }}></div>
+                <div style={{ fontSize: 44, marginBottom: 12 }}>📸</div>
                 <div
                   style={{ fontSize: 15, fontWeight: 600, color: T.textSub }}
                 >
@@ -8658,7 +8658,7 @@ export default function App() {
         }}
       >
         {" "}
-        <div style={{ fontSize: 44, marginBottom: 16 }}>️</div>{" "}
+        <div style={{ fontSize: 44, marginBottom: 16 }}>🏋️</div>{" "}
         <div
           style={{
             fontSize: 12,
@@ -8672,11 +8672,11 @@ export default function App() {
       </div>
     );
   const TABS = [
-    { id: "home", label: "HOME", e: "" },
-    { id: "log", label: "LOG", e: "" },
-    { id: "train", label: "TRAIN", e: "️" },
+    { id: "home", label: "HOME", e: "🏠" },
+    { id: "log", label: "LOG", e: "📝" },
+    { id: "train", label: "TRAIN", e: "🏋️" },
     { id: "body", label: "BODY", e: "⚖️" },
-    { id: "supps", label: "SUPPS", e: "" },
+    { id: "supps", label: "SUPPS", e: "💊" },
     { id: "settings", label: "SET", e: "⚙️" },
   ];
   return (
